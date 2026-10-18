@@ -209,6 +209,13 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.findingsCount).toBe(1);
     expect(run!.grounding).toBe('1/2 passed');
 
+    // Run Cost Badge: the outcome's cost is persisted and surfaced on every read path.
+    expect(run!.costUsd).toBeGreaterThan(0);
+    expect(run!.reviewBatchId).not.toBeNull();
+    expect(trace.stats.cost_usd).toBe(run!.costUsd);
+    const prRuns = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json();
+    expect(prRuns[0].cost_usd).toBe(run!.costUsd);
+
     await app.close();
   });
 
