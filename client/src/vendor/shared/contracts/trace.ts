@@ -48,6 +48,20 @@ export const PromptAssembly = z.object({
   /** PR author's description/body (truncated); null when absent. */
   pr_description: z.string().nullish(),
   user: z.string(),
+  /** L02 — tokens per assembled block (system, skills, …, user); absent on
+      legacy traces. Counted server-side with cl100k (approximate per model). */
+  block_tokens: z.record(z.string(), z.number().int()).nullish(),
+  /** L02 — the skills that went into the prompt, in prompt order. */
+  skills_detail: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        version: z.number().int(),
+        tokens: z.number().int(),
+      }),
+    )
+    .nullish(),
 });
 export type PromptAssembly = z.infer<typeof PromptAssembly>;
 

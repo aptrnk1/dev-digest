@@ -45,7 +45,8 @@ export interface SkillUsageDetail extends SkillUsage {
 export type NewSkill = Pick<
   SkillRecord,
   'workspaceId' | 'name' | 'description' | 'type' | 'source' | 'body' | 'enabled'
->;
+> &
+  Partial<Pick<SkillRecord, 'evidenceFiles'>>;
 
 export type SkillPatch = Partial<Pick<SkillRecord, 'name' | 'description' | 'type' | 'body' | 'enabled'>>;
 

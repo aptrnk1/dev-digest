@@ -111,3 +111,31 @@ export function useSetAgentSkills(agentId: string) {
     },
   });
 }
+
+/**
+ * Append one skill (enabled, last in order) to each agent's links, keeping
+ * the links they already have — PUT /agents/:id/skills replaces the whole set.
+ */
+export function useAttachSkillToAgents() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ skillId, agentIds }: { skillId: string; agentIds: string[] }) =>
+      Promise.all(
+        agentIds.map(async (agentId) => {
+          const links = await api.get<AgentSkillLink[]>(`/agents/${agentId}/skills`);
+          const items = [...links]
+            .sort((a, b) => a.order - b.order)
+            .filter((l) => l.skill_id !== skillId)
+            .map((l) => ({ skill_id: l.skill_id, enabled: l.enabled }));
+          return api.put<AgentSkillLink[]>(`/agents/${agentId}/skills`, {
+            items: [...items, { skill_id: skillId, enabled: true }],
+          });
+        }),
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agent-skills"] });
+      qc.invalidateQueries({ queryKey: ["agents"] });
+      qc.invalidateQueries({ queryKey: skillQueries.all() });
+    },
+  });
+}

@@ -12,6 +12,10 @@ time — edit in the UI to version a change).
 | [over-mocking](over-mocking.md) | convention | Test Quality Reviewer |
 | [api-contract-breaking-change](api-contract-breaking-change.md) | rubric | General Reviewer |
 | flaky-tests (`import-samples/`) | rubric | Test Quality Reviewer — **imported via the UI**, not seeded |
+| [breaking-change](breaking-change.md) | rubric | API Contract Reviewer — not seeded yet |
+| [response-schema](response-schema.md) | rubric | API Contract Reviewer — not seeded yet |
+| [semver-discipline](semver-discipline.md) | rubric | API Contract Reviewer — not seeded yet |
+| [deprecation-policy](deprecation-policy.md) | convention | API Contract Reviewer — not seeded yet |
 
 ## Import sample
 

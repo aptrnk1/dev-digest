@@ -62,6 +62,7 @@ export class SkillsService {
       // A foreign skill is foreign instructions in the agent's prompt: imported
       // skills start disabled until the user vets and enables them.
       enabled: source === 'imported' ? false : (input.enabled ?? true),
+      ...(input.evidence_files?.length ? { evidenceFiles: input.evidence_files } : {}),
     });
     return toSkillDto(r);
   }
