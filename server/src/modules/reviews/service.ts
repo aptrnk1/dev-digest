@@ -106,7 +106,7 @@ export class ReviewService {
     prId: string,
     targets: AgentRow[],
     logger?: Logger,
-  ): Promise<{ runs: { run_id: string; agent_id: string; agent_name: string }[]; reviews: ReviewDto[] }> {
+  ): Promise<{ runs: { id: string; agent_id: string; agent_name: string }[]; reviews: ReviewDto[] }> {
     const pull = await this.repo.getPull(workspaceId, prId);
     if (!pull) throw new NotFoundError('Pull request not found');
     const repo = await this.repo.getRepo(pull.repoId);
@@ -115,7 +115,7 @@ export class ReviewService {
     // Create the agent_run rows up front so a runId is available IMMEDIATELY —
     // the client persists these in global state and subscribes to the SSE
     // stream. The actual (slow) review runs in the background below.
-    const runs: { run_id: string; agent_id: string; agent_name: string }[] = [];
+    const runs: { id: string; agent_id: string; agent_name: string }[] = [];
     const jobs: { agent: AgentRow; runId: string }[] = [];
     // One batch id per Run Review click — the PR list sums cost over the latest batch.
     const reviewBatchId = randomUUID();
@@ -128,7 +128,7 @@ export class ReviewService {
         model: agent.model,
         reviewBatchId,
       });
-      runs.push({ run_id: runId, agent_id: agent.id, agent_name: agent.name });
+      runs.push({ id: runId, agent_id: agent.id, agent_name: agent.name });
       jobs.push({ agent, runId });
     }
 

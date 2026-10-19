@@ -43,7 +43,7 @@ export type ReviewRecord = z.infer<typeof ReviewRecord>;
  * persisted reviews are also returned once the (synchronous) run completes.
  */
 export const ReviewRunTarget = z.object({
-  run_id: z.string(),
+  id: z.string(),
   agent_id: z.string(),
   agent_name: z.string(),
 });
