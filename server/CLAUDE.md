@@ -28,6 +28,8 @@ Fastify API + Drizzle/Postgres. Human docs: `README.md` (source of truth).
 - `polling/routes.ts` queries Drizzle directly — legacy, don't copy that pattern.
 
 ## Read when
+- Adding/changing a module's structure (route, service, repository, port,
+  adapter, wiring) → `onion-architecture` skill; run `pnpm arch:check` before a PR.
 - Adding or changing a route → README.md §API map and §Request & DI flow.
 - Touching what goes into the review prompt → README.md §Review context.
 - Touching indexing, repo map, file rank or callers → src/modules/repo-intel/README.md.

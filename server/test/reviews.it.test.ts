@@ -260,12 +260,18 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
       await app.inject({ method: 'POST', url: `/findings/${findingId}/accept` })
     ).json();
     expect(accepted.finding.accepted_at).not.toBeNull();
+    const acceptRate = async () =>
+      (await app.inject({ method: 'GET', url: '/agents' }))
+        .json()
+        .find((a: { id: string }) => a.id === agent.id).stats.accept_rate;
+    expect(await acceptRate()).toBe(1);
 
     const dismissed = (
       await app.inject({ method: 'POST', url: `/findings/${findingId}/dismiss` })
     ).json();
     expect(dismissed.finding.dismissed_at).not.toBeNull();
     expect(dismissed.finding.accepted_at).toBeNull();
+    expect(await acceptRate()).toBe(0);
 
     await app.close();
   });

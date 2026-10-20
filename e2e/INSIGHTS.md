@@ -10,6 +10,7 @@
 ## Codebase Patterns
 
 ## Tool & Library Notes
+- 2026-10-18 · agent-browser 0.39 downloads Chrome for Testing 155, which cannot launch on macOS 12 (`Symbol not found: _kVTCompressionPropertyKey_ReferenceBufferCount`) — every flow fails at `open`; that's the host, not the app — run flows on macOS ≥13/CI, or verify via a regular Chrome (`agent-browser open http://example.com` reproduces)
 
 ## Recurring Errors & Fixes
 
