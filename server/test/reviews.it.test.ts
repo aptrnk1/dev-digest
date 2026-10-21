@@ -4,7 +4,7 @@ import { waitForPrRuns } from './helpers/runs.js';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
-import { MockLLMProvider, MockEmbedder, MockGitClient } from '../src/adapters/mocks.js';
+import { MockLLMProvider, MockEmbedder, MockGitClient, MockGitHubClient } from '../src/adapters/mocks.js';
 import * as t from '../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { Review } from '@devdigest/shared';
@@ -110,15 +110,35 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     await pg?.stop();
   });
 
-  function appWith(structured: unknown, provider: 'openai' | 'anthropic' = 'openai') {
+  /** Classifier output for the `pr_intent` schema (Intent Layer pre-work). */
+  const CLASSIFIED = {
+    intent: 'Limit abuse of the public API with a token-bucket limiter',
+    in_scope: ['limiter middleware'],
+    out_of_scope: [],
+    risk_areas: [{ label: 'secrets in config', kind: 'security' }],
+    confidence: 'medium',
+  };
+
+  /**
+   * Fixtures are keyed by schemaName: the reviewer gets `Review`, the intent
+   * classifier (default feature model = openrouter) gets `pr_intent`. Pass an
+   * invalid `intentFixture` to make the classifier fail its schema.
+   */
+  function appWith(
+    structured: unknown,
+    provider: 'openai' | 'anthropic' = 'openai',
+    intentFixture: unknown = CLASSIFIED,
+  ) {
     return buildApp({
       config: config(),
       db: pg.handle.db,
       overrides: {
         embedder: new MockEmbedder(),
         git: new MockGitClient({ diff: DIFF }),
+        github: new MockGitHubClient(),
         llm: {
-          [provider]: new MockLLMProvider(provider, { structured }),
+          [provider]: new MockLLMProvider(provider, { structuredBySchema: { Review: structured } }),
+          openrouter: new MockLLMProvider('openai', { structuredBySchema: { pr_intent: intentFixture } }),
         },
       },
     });
@@ -216,6 +236,51 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     const prRuns = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json();
     expect(prRuns[0].cost_usd).toBe(run!.costUsd);
 
+    await app.close();
+  });
+
+  it('Run Review derives intent first: trace carries prompt_assembly.intent, user prompt has ## PR intent, intent cost not in agent_runs.cost_usd', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agent = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'IntentAgent', provider: 'openai', model: 'gpt-4.1', system_prompt: 's' },
+      })
+    ).json();
+    const res = await app.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } });
+    await waitForPrRuns(pg.handle.db, pr.id, { expected: 1 });
+    const runId = res.json().runs[0].run_id;
+    const trace = (await app.inject({ method: 'GET', url: `/runs/${runId}/trace` })).json();
+    expect(trace.prompt_assembly.intent).toContain('Limit abuse of the public API');
+    expect(trace.prompt_assembly.user).toContain('## PR intent');
+    const [run] = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.id, runId));
+    expect(run!.status).toBe('done');
+    // Mock cost per call is 0.001; only the reviewer's single call is billed to the run.
+    expect(run!.costUsd).toBeCloseTo(0.001, 6);
+    await app.close();
+  });
+
+  it('classifier failure does not fail the run: Live Log error line, prompt_assembly.intent null', async () => {
+    const app = await appWith(REVIEW_FIXTURE, 'openai', { broken: true });
+    const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agent = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'NoIntentAgent', provider: 'openai', model: 'gpt-4.1', system_prompt: 's' },
+      })
+    ).json();
+    const res = await app.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } });
+    await waitForPrRuns(pg.handle.db, pr.id, { expected: 1 });
+    const runId = res.json().runs[0].run_id;
+    const trace = (await app.inject({ method: 'GET', url: `/runs/${runId}/trace` })).json();
+    const [run] = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.id, runId));
+    expect(run!.status).toBe('done');
+    expect(trace.prompt_assembly.intent ?? null).toBeNull();
+    expect(trace.prompt_assembly.user).not.toContain('## PR intent');
+    expect(trace.log.some((e: { kind: string; msg: string }) => e.kind === 'error' && /intent/i.test(e.msg))).toBe(true);
     await app.close();
   });
 
