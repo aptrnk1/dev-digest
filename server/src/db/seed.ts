@@ -129,10 +129,62 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
 
     // pr_files (subset)
     await db.insert(t.prFiles).values([
-      { prId: pr!.id, path: 'src/middleware/ratelimit.ts', additions: 84, deletions: 0 },
-      { prId: pr!.id, path: 'src/api/public/webhooks.ts', additions: 31, deletions: 6 },
-      { prId: pr!.id, path: 'src/config.ts', additions: 4, deletions: 0 },
-      { prId: pr!.id, path: 'src/api/users.ts', additions: 7, deletions: 2 },
+      {
+        prId: pr!.id,
+        path: 'src/middleware/ratelimit.ts',
+        additions: 84,
+        deletions: 0,
+        patch: '--- a/src/middleware/ratelimit.ts\n+++ b/src/middleware/ratelimit.ts\n@@ -0,0 +1,84 @@\n+import { FastifyRequest, FastifyReply } from \'fastify\';\n+\n+interface TokenBucket {\n+  tokens: number;\n+  lastRefill: number;\n+}\n+\n+const buckets = new Map<string, TokenBucket>();\n+const RATE_LIMIT = 100;\n+const WINDOW_MS = 60000;\n+\n+export async function rateLimit(req: FastifyRequest, reply: FastifyReply) {\n+  const clientIp = req.ip;\n+  const now = Date.now();\n+\n+  if (!buckets.has(clientIp)) {\n+    buckets.set(clientIp, { tokens: RATE_LIMIT, lastRefill: now });\n+    return;\n+  }\n+\n+  const bucket = buckets.get(clientIp)!;\n+  const timePassed = now - bucket.lastRefill;\n+  const tokensToAdd = (timePassed / WINDOW_MS) * RATE_LIMIT;\n+\n+  bucket.tokens = Math.min(RATE_LIMIT, bucket.tokens + tokensToAdd);\n+  bucket.lastRefill = now;\n+\n+  if (bucket.tokens < 1) {\n+    reply.status(429).send({ error: \'Too many requests\' });\n+    return;\n+  }\n+\n+  bucket.tokens -= 1;\n+}\n+\n+export function attachRateLimit(app: any) {\n+  app.addHook(\'preHandler\', rateLimit);\n+}\n+\n+// Additional helper functions\n+function getClientId(req: FastifyRequest): string {\n+  return req.headers[\'x-client-id\'] as string || req.ip;\n+}\n+\n+function resetBucket(clientId: string) {\n+  buckets.delete(clientId);\n+}\n+\n+function getBucketStatus(clientId: string): TokenBucket | null {\n+  return buckets.get(clientId) || null;\n+}\n+\n+export const rateLimitStats = {\n+  getClientId,\n+  resetBucket,\n+  getBucketStatus,\n+  getTotalBuckets: () => buckets.size,\n+  clearAllBuckets: () => buckets.clear(),\n+};\n+\n+// Configuration constants\n+export const RATE_LIMIT_CONFIG = {\n+  limit: RATE_LIMIT,\n+  window: WINDOW_MS,\n+  burst: Math.ceil(RATE_LIMIT * 1.5),\n+};\n+\n+// Export for middleware\n+export default rateLimit;',
+      },
+      {
+        prId: pr!.id,
+        path: 'src/api/public/webhooks.ts',
+        additions: 31,
+        deletions: 6,
+        patch: '--- a/src/api/public/webhooks.ts\n+++ b/src/api/public/webhooks.ts\n@@ -42,6 +42,31 @@\n   return await processPayment(body.data);\n }\n \n-function validateSignature(header: string) {\n-  return true;\n-}\n-\n-export default handleWebhook;',
+      },
+      {
+        prId: pr!.id,
+        path: 'src/config.ts',
+        additions: 4,
+        deletions: 0,
+        patch: '--- a/src/config.ts\n+++ b/src/config.ts\n@@ -9,2 +9,6 @@\n export const API_PORT = parseInt(process.env.API_PORT || \'3001\', 10);\n \n export const DATABASE_URL = process.env.DATABASE_URL || \'postgres://localhost/payments\';\n+\n+export const STRIPE_KEY = \'sk_live_EXAMPLE_NOT_A_REAL_KEY\';\n+export const RATE_LIMIT_ENABLED = true;',
+      },
+      {
+        prId: pr!.id,
+        path: 'src/api/users.ts',
+        additions: 7,
+        deletions: 2,
+        patch: '--- a/src/api/users.ts\n+++ b/src/api/users.ts\n@@ -42,2 +42,8 @@\n   return await fetchUserDetails(userId);\n }\n \n-async function getUserList() {\n-  return db.query.users.findMany();\n+async function getUserList() {\n+  const users = await db.query.users.findMany();\n+  for (const user of users) {\n+    const orders = await db.query.orders.findMany({ where: { userId: user.id } });\n+    user.orders = orders;\n+  }\n+  return users;',
+      },
+      {
+        prId: pr!.id,
+        path: 'src/api/users.test.ts',
+        additions: 10,
+        deletions: 0,
+        patch: '--- /dev/null\n+++ b/src/api/users.test.ts\n@@ -0,0 +1,10 @@\n+import { describe, it, expect } from \'vitest\';\n+import { getUserList, getUserById } from \'./users.js\';\n+\n+describe(\'User API\', () => {\n+  it(\'returns a list of users\', async () => {\n+    const users = await getUserList();\n+    expect(Array.isArray(users)).toBe(true);\n+  });\n+});\n+',
+      },
+      {
+        prId: pr!.id,
+        path: 'src/index.ts',
+        additions: 3,
+        deletions: 0,
+        patch: '--- /dev/null\n+++ b/src/index.ts\n@@ -0,0 +1,3 @@\n+export * from \'./api/index.js\';\n+export * from \'./config.js\';\n+// Main API entrypoint\n+',
+      },
+      {
+        prId: pr!.id,
+        path: 'README.md',
+        additions: 8,
+        deletions: 0,
+        patch: '--- /dev/null\n+++ b/README.md\n@@ -0,0 +1,8 @@\n+# Payments API\n+\n+A rate-limited public API for payment processing.\n+\n+## Installation\n+\n+Clone the repository and install dependencies:\n+```bash',
+      },
+      {
+        prId: pr!.id,
+        path: 'pnpm-lock.yaml',
+        additions: 1,
+        deletions: 0,
+        patch: '--- /dev/null\n+++ b/pnpm-lock.yaml\n@@ -0,0 +1,1 @@\n+lockfileVersion: 6',
+      },
     ]);
 
     // pr_commits
