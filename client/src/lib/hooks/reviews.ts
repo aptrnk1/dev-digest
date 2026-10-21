@@ -131,6 +131,8 @@ export function useRunReview() {
       }),
     onSuccess: (_d, { prId }) => {
       qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      // A run derives the intent as pre-work — refresh the IntentCard.
+      qc.invalidateQueries({ queryKey: ["pr-intent", prId] });
     },
   });
 }
