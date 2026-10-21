@@ -25,6 +25,8 @@ import { PriceBook } from './price-book.js';
 import { ConfigError } from './errors.js';
 import { AgentsRepository } from '../modules/agents/repository.js';
 import { ReviewRepository } from '../modules/reviews/repository.js';
+import type { IntentFacade } from '../modules/intent/types.js';
+import { createIntentFacade } from '../modules/intent/compose.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
@@ -73,6 +75,7 @@ export class Container {
   private _agentsRepo?: AgentsRepository;
   private _reviewRepo?: ReviewRepository;
   private _repoIntel?: RepoIntel;
+  private _intent?: IntentFacade;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
   private _priceBook?: PriceBook;
@@ -115,6 +118,15 @@ export class Container {
     if (this.overrides.repoIntel) return this.overrides.repoIntel;
     this._repoIntel ??= new RepoIntelService(this);
     return this._repoIntel;
+  }
+
+  /**
+   * Intent Layer facade — derive/cached PR intent for the review pre-work.
+   * Same pattern as `repoIntel`: reviews never import the intent module.
+   */
+  get intent(): IntentFacade {
+    this._intent ??= createIntentFacade(this);
+    return this._intent;
   }
 
   /** Import-graph builder (dependency-cruiser). T3 indexer pipeline only. */
