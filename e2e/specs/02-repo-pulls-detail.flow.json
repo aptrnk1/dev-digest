@@ -8,6 +8,8 @@
     { "cmd": ["find", "text", "Add rate limiting to public API endpoints", "click"], "label": "open the PR row" },
     { "cmd": ["wait", "--url", "/pulls/482"], "label": "navigate to the PR detail route" },
     { "cmd": ["wait", "--load", "networkidle"], "label": "PR detail data settles" },
-    { "cmd": ["wait", "--text", "Add rate limiting to public API endpoints"], "label": "PR title renders on the detail page" }
+    { "cmd": ["wait", "--text", "Add rate limiting to public API endpoints"], "label": "PR title renders on the detail page" },
+    { "cmd": ["wait", "--text", "Intent"], "label": "IntentCard section header renders" },
+    { "cmd": ["wait", "--text", "Protect the public API from abuse by rate limiting unauthenticated clients."], "label": "seeded intent quote renders" }
   ]
 }

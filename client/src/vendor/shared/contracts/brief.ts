@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Severity } from './findings.js';
 
 /**
  * PR Brief building blocks: Intent, Blast radius, Risks, PR History,
@@ -6,10 +7,39 @@ import { z } from 'zod';
  */
 
 // ---- Intent ----
+export const IntentRiskKind = z.enum(['security', 'dependency', 'performance', 'data', 'api', 'other']);
+export type IntentRiskKind = z.infer<typeof IntentRiskKind>;
+
+export const IntentConfidence = z.enum(['high', 'medium', 'low']);
+export type IntentConfidence = z.infer<typeof IntentConfidence>;
+
+export const IntentBasis = z.enum(['spec', 'ticket', 'description', 'inferred']);
+export type IntentBasis = z.infer<typeof IntentBasis>;
+
+/** One input the intent was derived from (spec file, issue, PR description, signals). */
+export const IntentSource = z.object({
+  kind: IntentBasis,
+  ref: z.string(),
+  truncated: z.boolean(),
+});
+export type IntentSource = z.infer<typeof IntentSource>;
+
+/** A reference found in the PR that could not be resolved/fetched. */
+export const UnresolvedRef = z.object({
+  ref: z.string(),
+  reason: z.string(),
+});
+export type UnresolvedRef = z.infer<typeof UnresolvedRef>;
+
 export const Intent = z.object({
   intent: z.string(),
   in_scope: z.array(z.string()),
   out_of_scope: z.array(z.string()),
+  risk_areas: z.array(z.object({ label: z.string(), kind: IntentRiskKind })),
+  confidence: IntentConfidence,
+  basis: IntentBasis,
+  sources: z.array(IntentSource),
+  unresolved_refs: z.array(UnresolvedRef),
 });
 export type Intent = z.infer<typeof Intent>;
 
@@ -78,7 +108,7 @@ export const PrHistory = z.object({
 export type PrHistory = z.infer<typeof PrHistory>;
 
 // ---- Smart Diff ----
-export const SmartDiffRole = z.enum(['core', 'wiring', 'boilerplate']);
+export const SmartDiffRole = z.enum(['core', 'tests', 'wiring', 'docs', 'boilerplate']);
 export type SmartDiffRole = z.infer<typeof SmartDiffRole>;
 
 export const SmartDiffFile = z.object({
@@ -87,12 +117,16 @@ export const SmartDiffFile = z.object({
   additions: z.number().int(),
   deletions: z.number().int(),
   finding_lines: z.array(z.number().int()),
+  finding_ids: z.array(z.string()),
+  max_severity: Severity.nullable(),
+  rank_percentile: z.number().nullable(),
 });
 export type SmartDiffFile = z.infer<typeof SmartDiffFile>;
 
 export const SmartDiffGroup = z.object({
   role: SmartDiffRole,
   files: z.array(SmartDiffFile),
+  files_with_findings: z.number().int(),
 });
 export type SmartDiffGroup = z.infer<typeof SmartDiffGroup>;
 

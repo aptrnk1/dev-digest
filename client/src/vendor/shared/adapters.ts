@@ -181,6 +181,11 @@ export interface GitClient {
   blame(repo: RepoRef, path: string): Promise<BlameLine[]>;
   log(repo: RepoRef, path?: string): Promise<GitCommit[]>;
   readFile(repo: RepoRef, path: string): Promise<string>;
+  /**
+   * `git show <ref>:<path>` in the local clone. Returns null on any failure
+   * (missing ref/path, not cloned) — never fetches.
+   */
+  showFile(repo: RepoRef, ref: string, path: string): Promise<string | null>;
   clonePathFor(repo: RepoRef): string;
 }
 

@@ -21,6 +21,143 @@ import { SEED_CONVENTIONS, SEED_CONVENTIONS_FILES_SAMPLED } from './seed-convent
 const DEFAULT_PROVIDER = 'openrouter' as const;
 const DEFAULT_MODEL = 'deepseek/deepseek-v4-flash';
 
+/** `@@` hunk for a brand-new file. */
+function newFilePatch(lines: string[]): string {
+  return [`@@ -0,0 +1,${lines.length} @@`, ...lines.map((l) => `+${l}`)].join('\n');
+}
+
+/** Added/removed line counts of a hunks-only unified diff. */
+function patchStats(patch: string): { additions: number; deletions: number } {
+  let additions = 0;
+  let deletions = 0;
+  for (const line of patch.split('\n')) {
+    if (line.startsWith('@@')) continue;
+    if (line.startsWith('+')) additions++;
+    else if (line.startsWith('-')) deletions++;
+  }
+  return { additions, deletions };
+}
+
+/**
+ * PR #482 files — one or more per Smart Diff role. Seeded findings anchor to
+ * `src/config.ts:12` (the key line) and `src/api/users.ts:45-52`.
+ */
+const SEED_PR_FILES: { path: string; patch: string }[] = [
+  {
+    path: 'src/middleware/ratelimit.ts',
+    patch: newFilePatch([
+      "import type { FastifyReply, FastifyRequest } from 'fastify';",
+      '',
+      'interface TokenBucket {',
+      '  tokens: number;',
+      '  lastRefill: number;',
+      '}',
+      '',
+      'const buckets = new Map<string, TokenBucket>();',
+      'const RATE_LIMIT = 100;',
+      'const WINDOW_MS = 60_000;',
+      '',
+      'export async function rateLimit(req: FastifyRequest, reply: FastifyReply) {',
+      '  const now = Date.now();',
+      '  const bucket = buckets.get(req.ip) ?? { tokens: RATE_LIMIT, lastRefill: now };',
+      '  const refill = ((now - bucket.lastRefill) / WINDOW_MS) * RATE_LIMIT;',
+      '  bucket.tokens = Math.min(RATE_LIMIT, bucket.tokens + refill);',
+      '  bucket.lastRefill = now;',
+      '  buckets.set(req.ip, bucket);',
+      '',
+      '  if (bucket.tokens < 1) {',
+      "    return reply.status(429).send({ error: 'Too many requests' });",
+      '  }',
+      '  bucket.tokens -= 1;',
+      '}',
+    ]),
+  },
+  {
+    path: 'src/api/public/webhooks.ts',
+    patch: [
+      '@@ -42,6 +42,8 @@ export async function handleWebhook(req: FastifyRequest) {',
+      '   return await processPayment(body.data);',
+      ' }',
+      ' ',
+      '-function validateSignature(header: string) {',
+      '-  return true;',
+      '+function validateSignature(header: string | undefined): boolean {',
+      "+  if (!header) return false;",
+      '+  const expected = sign(rawBody, WEBHOOK_SECRET);',
+      '+  return timingSafeEqual(Buffer.from(header), Buffer.from(expected));',
+      ' }',
+    ].join('\n'),
+  },
+  {
+    path: 'src/config.ts',
+    patch: [
+      '@@ -9,3 +9,5 @@',
+      " export const API_PORT = parseInt(process.env.API_PORT || '3001', 10);",
+      ' ',
+      " export const DATABASE_URL = process.env.DATABASE_URL || 'postgres://localhost/payments';",
+      "+export const STRIPE_KEY = 'sk_live_EXAMPLE_NOT_A_REAL_KEY';",
+      '+export const RATE_LIMIT_ENABLED = true;',
+    ].join('\n'),
+  },
+  {
+    path: 'src/api/users.ts',
+    patch: [
+      '@@ -42,5 +42,11 @@',
+      '   return await fetchUserDetails(userId);',
+      ' }',
+      ' ',
+      '-export async function getUserList() {',
+      '-  return db.query.users.findMany();',
+      '+export async function getUserList() {',
+      '+  const users = await db.query.users.findMany();',
+      '+  for (const user of users) {',
+      '+    const orders = await db.query.orders.findMany({ where: { userId: user.id } });',
+      '+    user.orders = orders;',
+      '+  }',
+      '+  return users;',
+      '+}',
+    ].join('\n'),
+  },
+  {
+    path: 'src/api/users.test.ts',
+    patch: newFilePatch([
+      "import { describe, expect, it } from 'vitest';",
+      "import { getUserList } from './users.js';",
+      '',
+      "describe('getUserList', () => {",
+      "  it('returns a list of users', async () => {",
+      '    const users = await getUserList();',
+      '    expect(Array.isArray(users)).toBe(true);',
+      '  });',
+      '});',
+    ]),
+  },
+  {
+    path: 'src/index.ts',
+    patch: newFilePatch([
+      '// Public entrypoint',
+      "export * from './api/index.js';",
+      "export { rateLimit } from './middleware/ratelimit.js';",
+    ]),
+  },
+  {
+    path: 'README.md',
+    patch: newFilePatch([
+      '# Payments API',
+      '',
+      'A rate-limited public API for payment processing.',
+      '',
+      '## Rate limiting',
+      '',
+      'Public routes allow 100 requests per minute per client IP.',
+    ]),
+  },
+  {
+    path: 'pnpm-lock.yaml',
+    patch: newFilePatch(["lockfileVersion: '9.0'", '', 'settings:', '  autoInstallPeers: true']),
+  },
+];
+
 /**
  * Seed the starter's demo data. Idempotent: re-running upserts the default
  * workspace/user and the demo fixtures.
@@ -127,13 +264,11 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       })
       .returning();
 
-    // pr_files (subset)
-    await db.insert(t.prFiles).values([
-      { prId: pr!.id, path: 'src/middleware/ratelimit.ts', additions: 84, deletions: 0 },
-      { prId: pr!.id, path: 'src/api/public/webhooks.ts', additions: 31, deletions: 6 },
-      { prId: pr!.id, path: 'src/config.ts', additions: 4, deletions: 0 },
-      { prId: pr!.id, path: 'src/api/users.ts', additions: 7, deletions: 2 },
-    ]);
+    // pr_files (subset). Patches use GitHub's `patch` format (hunks only, no
+    // `---`/`+++` file headers); additions/deletions are counted from them.
+    await db.insert(t.prFiles).values(
+      SEED_PR_FILES.map((f) => ({ prId: pr!.id, path: f.path, patch: f.patch, ...patchStats(f.patch) })),
+    );
 
     // pr_commits
     await db.insert(t.prCommits).values({
@@ -185,6 +320,36 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       },
     ]);
   }
+
+  // ---- PR intent for #482 (Intent Layer) ----
+  // Same head_sha as the PR (not stale) and input_hash 'seed' so the first POST re-derives.
+  await db
+    .insert(t.prIntent)
+    .values({
+      prId: pr!.id,
+      intent: 'Protect the public API from abuse by rate limiting unauthenticated clients.',
+      inScope: [
+        'Token-bucket rate limiter middleware',
+        'Apply the limiter to public webhook endpoints',
+        'Rate-limit settings in config',
+      ],
+      outOfScope: ['Per-user quotas for authenticated clients', 'Distributed limiter state'],
+      riskAreas: [
+        { label: 'Secrets committed in config changes', kind: 'security' },
+        { label: 'N+1 queries under the new limiter', kind: 'performance' },
+      ],
+      confidence: 'medium',
+      basis: 'description',
+      sources: [
+        { kind: 'description', ref: 'pr-description', truncated: false },
+        { kind: 'inferred', ref: 'pr-signals', truncated: false },
+      ],
+      unresolvedRefs: [{ ref: 'PAY-482', reason: 'Jira — not fetched' }],
+      headSha: pr!.headSha,
+      inputHash: 'seed',
+      model: 'seed',
+    })
+    .onConflictDoNothing();
 
   // ---- built-in agents (the three starter presets) ----
   // Prompt bodies live in ./seed-prompts.ts (mirrored in docs/agent-prompts/*.md).

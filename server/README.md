@@ -75,6 +75,8 @@ flowchart TB
     agents["agents<br/>/agents · /agents/:id · /agents/:id/skills"]
     skills["skills (L02)<br/>/skills · /skills/:id(/versions|/stats) · /skills/import/preview"]
     conventions["conventions (L02)<br/>/repos/:id/conventions(/extract|/bulk) · /conventions/:id"]
+    intent["intent<br/>GET/POST /pulls/:id/intent"]
+    smartDiff["smart-diff<br/>GET /pulls/:id/smart-diff"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
@@ -151,6 +153,18 @@ What the reviewer actually sends to the model is assembled in
   Extraction is fire-and-forget; `convention_scans` holds its status, and a
   re-scan replaces every candidate of the repo. Accepted candidates become one
   skill through `POST /skills` with `source: 'extracted'` + `evidence_files`.
+- **Intent Layer (`modules/intent`).** `IntentService.ensure` gathers sources
+  deterministically — spec/plan links read at `head_sha` (`GitClient.showFile`,
+  ≤3×6000 chars, `.md/.mdx/.txt`, no path escaping the repo), GitHub issues
+  (≤3×4000, closing keywords / `#N` / `owner/repo#N` / branch number), the PR
+  description and branch/commit/file signals; Jira keys and Linear URLs are only
+  listed in `unresolved_refs`. `input_hash` over those inputs gates the cache;
+  a miss makes ONE `pr_intent` structured call (model from Feature Models →
+  `review_intent`, default Haiku 4.5) with each source in its own `<untrusted>`
+  block. Confidence is `min(evidence ceiling, model)` — a PR with no real
+  description is `low`/`inferred` whatever the model says. Reviews reach it via
+  `container.intent` (non-fatal pre-work); the intent cost stays in `pr_intent`,
+  not in `agent_runs.cost_usd`. Routes: `GET/POST /pulls/:id/intent`.
 - **Grounding is mandatory.** Every finding must cite a line that exists in the
   diff or it is dropped (`groundFindings`), and the score is recomputed from the
   surviving findings — the model's self-reported score is ignored.

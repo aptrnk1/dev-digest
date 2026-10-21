@@ -15,6 +15,9 @@ import {
   Settings,
   Repo,
   PrDetail,
+  PrIntentState,
+  PromptAssembly,
+  FEATURE_MODELS,
 } from '@devdigest/shared';
 
 /**
@@ -67,7 +70,16 @@ describe('AI contracts parse fixtures', () => {
 
   it('Intent / BlastRadius / Risks / PrHistory', () => {
     expect(() =>
-      Intent.parse({ intent: 'x', in_scope: ['a'], out_of_scope: ['b'] }),
+      Intent.parse({
+        intent: 'x',
+        in_scope: ['a'],
+        out_of_scope: ['b'],
+        risk_areas: [],
+        confidence: 'low',
+        basis: 'inferred',
+        sources: [],
+        unresolved_refs: [],
+      }),
     ).not.toThrow();
     expect(() =>
       BlastRadius.parse({
@@ -104,17 +116,152 @@ describe('AI contracts parse fixtures', () => {
     ).not.toThrow();
   });
 
-  it('SmartDiff (data.jsx DIFF)', () => {
+  it('SmartDiff (data.jsx DIFF) — all five roles, finding_ids, max_severity, rank_percentile, files_with_findings', () => {
     const d = SmartDiff.parse({
       groups: [
         {
           role: 'core',
-          files: [{ path: 'a.ts', additions: 84, deletions: 0, finding_lines: [28, 52] }],
+          files: [
+            {
+              path: 'src/core.ts',
+              additions: 84,
+              deletions: 0,
+              finding_lines: [28, 52],
+              finding_ids: ['f1', 'f2'],
+              max_severity: 'CRITICAL',
+              rank_percentile: 0.85,
+            },
+          ],
+          files_with_findings: 1,
+        },
+        {
+          role: 'tests',
+          files: [
+            {
+              path: 'src/core.test.ts',
+              additions: 24,
+              deletions: 0,
+              finding_lines: [],
+              finding_ids: [],
+              max_severity: null,
+              rank_percentile: null,
+            },
+          ],
+          files_with_findings: 0,
+        },
+        {
+          role: 'wiring',
+          files: [
+            {
+              path: 'package.json',
+              additions: 1,
+              deletions: 0,
+              finding_lines: [],
+              finding_ids: [],
+              max_severity: null,
+              rank_percentile: 0.5,
+            },
+          ],
+          files_with_findings: 0,
+        },
+        {
+          role: 'docs',
+          files: [
+            {
+              path: 'README.md',
+              additions: 10,
+              deletions: 0,
+              finding_lines: [],
+              finding_ids: [],
+              max_severity: null,
+              rank_percentile: null,
+            },
+          ],
+          files_with_findings: 0,
+        },
+        {
+          role: 'boilerplate',
+          files: [
+            {
+              path: 'pnpm-lock.yaml',
+              additions: 100,
+              deletions: 10,
+              finding_lines: [],
+              finding_ids: [],
+              max_severity: null,
+              rank_percentile: null,
+            },
+          ],
+          files_with_findings: 0,
         },
       ],
       split_suggestion: { too_big: false, total_lines: 285, proposed_splits: [] },
     });
+    expect(d.groups).toHaveLength(5);
     expect(d.groups[0]!.role).toBe('core');
+    expect(d.groups[0]!.files[0]!.finding_ids).toEqual(['f1', 'f2']);
+    expect(d.groups[0]!.files[0]!.max_severity).toBe('CRITICAL');
+    expect(d.groups[0]!.files[0]!.rank_percentile).toBe(0.85);
+    expect(d.groups[0]!.files_with_findings).toBe(1);
+    expect(d.groups[1]!.role).toBe('tests');
+    expect(d.groups[2]!.role).toBe('wiring');
+    expect(d.groups[3]!.role).toBe('docs');
+    expect(d.groups[4]!.role).toBe('boilerplate');
+  });
+
+  it('SmartDiff rejects invalid role (with whitespace)', () => {
+    expect(() =>
+      SmartDiff.parse({
+        groups: [
+          {
+            role: 'tests ',
+            files: [],
+            files_with_findings: 0,
+          },
+        ],
+        split_suggestion: { too_big: false, total_lines: 0, proposed_splits: [] },
+      }),
+    ).toThrow();
+  });
+
+  it('SmartDiff rejects unknown role', () => {
+    expect(() =>
+      SmartDiff.parse({
+        groups: [
+          {
+            role: 'unknown',
+            files: [],
+            files_with_findings: 0,
+          },
+        ],
+        split_suggestion: { too_big: false, total_lines: 0, proposed_splits: [] },
+      }),
+    ).toThrow();
+  });
+
+  it('SmartDiff rejects invalid max_severity', () => {
+    expect(() =>
+      SmartDiff.parse({
+        groups: [
+          {
+            role: 'core',
+            files: [
+              {
+                path: 'a.ts',
+                additions: 1,
+                deletions: 0,
+                finding_lines: [],
+                finding_ids: [],
+                max_severity: 'INFO',
+                rank_percentile: null,
+              },
+            ],
+            files_with_findings: 0,
+          },
+        ],
+        split_suggestion: { too_big: false, total_lines: 0, proposed_splits: [] },
+      }),
+    ).toThrow();
   });
 
   it('Conformance / Onboarding / EvalRun / MemoryItem', () => {
@@ -206,5 +353,46 @@ describe('platform DTOs', () => {
         commits: [],
       }),
     ).not.toThrow();
+  });
+});
+
+describe('Intent layer contracts', () => {
+  const intent = {
+    intent: 'Add retry to webhook delivery',
+    in_scope: ['retry loop'],
+    out_of_scope: ['queue rewrite'],
+    risk_areas: [{ label: 'duplicate delivery', kind: 'api' }],
+    confidence: 'medium',
+    basis: 'description',
+    sources: [{ kind: 'description', ref: 'pr-description', truncated: false }],
+    unresolved_refs: [{ ref: 'ABC-123', reason: 'Jira not supported' }],
+  };
+
+  it('parses a full Intent and PrIntentState', () => {
+    expect(Intent.parse(intent).risk_areas).toHaveLength(1);
+    const state = PrIntentState.parse({
+      intent: {
+        ...intent,
+        pr_id: 'p1',
+        head_sha: 'abc',
+        model: null,
+        cost_usd: null,
+        updated_at: null,
+      },
+      stale: false,
+    });
+    expect(state.stale).toBe(false);
+    expect(PrIntentState.parse({ intent: null, stale: false }).intent).toBeNull();
+  });
+
+  it('PromptAssembly without intent still parses (legacy traces)', () => {
+    const pa = PromptAssembly.parse({ system: 's', user: 'u' });
+    expect(pa.intent).toBeUndefined();
+  });
+
+  it('review_intent defaults to openrouter Haiku 4.5', () => {
+    const m = FEATURE_MODELS.find((f) => f.id === 'review_intent');
+    expect(m?.defaultProvider).toBe('openrouter');
+    expect(m?.defaultModel).toBe('anthropic/claude-haiku-4-5');
   });
 });

@@ -43,6 +43,7 @@ delimiter-wrapped (`prompt.ts:104-122`):
 ```
 <task line, e.g. "Review PR #7 '…'">
 ## PR description        (untrusted, author-controlled, truncated to 4000 chars)
+## PR intent            (untrusted, derived from the PR; omitted when not derived)
 ## Skills / rules        (enabled linked skills, in the agent's order — trusted)
 ## Relevant memory       (curated memory items)
 ## Repo skeleton         (untrusted, repo-derived)

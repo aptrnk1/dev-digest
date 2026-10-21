@@ -15,5 +15,49 @@
     "blame": "blame",
     "noHistory": "No history available for this line.",
     "noCommits": "No commits found for this line."
+  },
+  "intent": {
+    "title": "Intent",
+    "outOfScope": "Out of scope",
+    "inScope": "In scope",
+    "risks": "Risk areas",
+    "derivedFrom": "Derived from",
+    "basis": {
+      "spec": "spec",
+      "ticket": "ticket",
+      "description": "description",
+      "inferred": "inferred"
+    },
+    "confidence": {
+      "high": "High confidence",
+      "medium": "Medium confidence",
+      "low": "Low confidence"
+    },
+    "sourceKind": {
+      "spec": "spec",
+      "ticket": "issue",
+      "description": "description",
+      "inferred": "inferred"
+    },
+    "lowHint": "Inferred from branch, commits and changed files — PR has no description",
+    "unresolved": "Could not resolve",
+    "truncated": "truncated",
+    "stale": "Outdated",
+    "staleHint": "The PR changed since this intent was derived.",
+    "empty": {
+      "title": "Intent not derived yet",
+      "body": "Derive what this PR is trying to do, from its spec, ticket and description.",
+      "cta": "Derive intent"
+    },
+    "rederive": "Re-derive",
+    "deriving": "Deriving intent…",
+    "deriveError": {
+      "notConfigured": "No LLM key for the intent model — add one in Settings → Feature Models.",
+      "generic": "Could not derive the intent. Try again."
+    },
+    "error": {
+      "title": "Couldn't load the intent",
+      "body": "The PR intent could not be loaded."
+    }
   }
 }
