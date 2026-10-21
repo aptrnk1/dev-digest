@@ -29,6 +29,7 @@ repository; hook → api.ts; reviewer-core entry point), and what stays as is>
 Owns: `server/src/vendor/shared/<x>.ts`, `client/src/vendor/shared/<x>.ts`, `server/src/db/schema/<x>.ts`, `server/src/db/migrations/<generated>`
 Depends on: —
 Skills: zod, drizzle-orm-patterns
+Route: agent | agent:haiku | inline   (see Execution §2; default agent)
 Steps:
 1. <concrete step>
 Acceptance:
@@ -73,27 +74,68 @@ Verify: `cd server && pnpm exec vitest run <x>.it.test.ts`
 ---
 
 ## Execution (for the orchestrator)
-1. Run each wave's tasks with the `implementer` agent, one task per agent.
-   Delegation message: `plan: specs/plans/<feature>.md` · `task: T<n>` (+
-   interfaces reported by earlier tasks). Parallel `[P]` tasks run with
-   `isolation: "worktree"` passed in the Agent call; wave 0 runs in the main
-   checkout.
-2. Worktrees branch from the default branch, not from the current HEAD —
-   commit the plan and wave 0 (and merge the previous wave) before starting
-   a parallel wave, or the workers won't see them.
-3. Merge worktree results one at a time; a merge conflict means two tasks were
-   not independent — fix the plan, not the code. Update `## Progress` from
-   the workers' reports (workers never edit the plan).
-4. Any `NEEDS_CONTEXT` / `BLOCKED` → resolve (update the plan or the task)
-   before the next wave. Never re-dispatch an unchanged task.
-5. Final verify:
+Goal: every check below still runs; tokens are saved by not repeating work.
+
+**Dispatch**
+1. One `implementer` per task. Delegation message, in this order (the shared
+   part first and byte-identical across a wave, so parallel workers hit the
+   prompt cache; the task-specific part last):
+   ```
+   plan: specs/plans/<feature>.md
+   <wave notes: interfaces from earlier tasks, branch to ff-merge, known host limits>
+   report: specs/plans/reports/<feature>/T<n>.md
+   commit: yes            # worktree runs only
+   skip-verify: <cmd> — <reason>   # only if a Verify command can't run here
+   task: T<n>
+   ```
+   Pass only interfaces later tasks consume — not whole earlier reports.
+2. Per task pick the cheapest route that keeps its Verify:
+   | Task shape | Route |
+   |---|---|
+   | ≤ ~10 lines in one `Owns`, no design (flow JSON, copy, a constant) | orchestrator does it inline + runs Verify |
+   | mechanical: wording, renames, fixture tweaks, follow-up fixes with an exact list | `implementer` with `model: "haiku"` |
+   | real logic, security, cross-layer | `implementer` (default `sonnet`) |
+3. `isolation: "worktree"` only for `[P]` tasks that are big enough to gain
+   from parallelism; a small or lone task runs in the main checkout.
+   Worktrees branch from the default branch — commit the plan and merge the
+   previous wave first, and name the branch in the wave notes
+   (`git merge --ff-only <branch>`). Right after the Agent calls return, run
+   `./scripts/worktree-bootstrap.sh --all` (symlinks `node_modules`).
+4. Never dispatch a task whose result is known in advance: a Verify command
+   documented as host-broken in a module `INSIGHTS.md` goes into
+   `skip-verify`.
+
+**Merge**
+5. Merge worktree results one at a time; a conflict means the tasks were not
+   independent — fix the plan, not the code. After each merge run the
+   affected package gates once (filtered: `2>&1 | grep -E 'Tests |FAIL|error TS'`)
+   and append the result to `specs/plans/reports/<feature>/verify-<sha>.md`
+   (command · exit · counts). Reviewers reuse this log instead of re-running.
+6. Update the Progress table from the short reports (workers never edit the
+   plan). `NEEDS_CONTEXT` / `BLOCKED` → resolve before the next wave; never
+   re-dispatch an unchanged task.
+7. Follow-up fixes go to the **same** implementer via `SendMessage` (its
+   context is warm and cached), with an exact list of findings. A new agent
+   only if the original is gone.
+
+**Review**
+8. Between waves — only when a later wave consumes this wave's interfaces —
+   run a single `architecture-reviewer` with `model: "sonnet"` on the wave's
+   range. Otherwise skip the mid-wave review.
+9. Final round, in parallel: `architecture-reviewer` (default `opus`) and
+   `plan-verifier` with `evidence: …/verify-<sha>.md`. A second round after
+   fixes is always delta: reviewer gets `previous: <finding ids>` +
+   `scope: diff <fix-base>..HEAD`; verifier gets
+   `previous: <report path>` + `since: <sha>`.
+
+**Final verify** (record in `verify-<sha>.md`)
    - `cd server && pnpm typecheck && pnpm exec vitest run --exclude '**/*.it.test.ts' && pnpm arch:check`
-   - `cd server && pnpm exec vitest run .it.test` (Docker)
+   - `cd server && pnpm exec vitest run .it.test --no-file-parallelism` (Docker; parallel container starts fail on this host)
    - `cd client && pnpm typecheck && pnpm test`
    - `cd reviewer-core && npm run typecheck && npm test` (if touched)
-   - `cd e2e && npm run e2e:hermetic` (if flows changed)
-6. `/pr-self-review`, then record "Insight candidates" from the reports with
-   `engineering-insights`.
+   - `cd e2e && npm run e2e:hermetic` (if flows changed and the host can run it — see `e2e/INSIGHTS.md`)
+10. `/pr-self-review`, then record "Insight candidates" from the report files
+    with `engineering-insights`.
 
 ## Progress
 | Task | Status | Notes |

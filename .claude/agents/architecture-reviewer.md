@@ -75,6 +75,16 @@ The delegation message must contain exactly one scope:
 Optional: `plan: specs/plans/<f>.md` + `task: T<n>` for intent (what the
 change was supposed to do and which files it owns).
 
+Optional `previous: <findings>` (ids + `file:line`, inline or a report path)
+with `scope: diff <sha>..HEAD` — **delta mode** for a follow-up round:
+1. For each previous finding: re-open its location and mark it `fixed`,
+   `open` or `moved` with a fresh quote. This is the first section of the
+   report.
+2. Review only the files changed in `<sha>..HEAD` (plus their direct
+   importers when a signature changed). Files approved in the earlier round
+   and untouched since are not re-reviewed.
+3. Run `arch:check` once as usual — it covers the whole server.
+
 If no scope is given, the scope is ambiguous, or the paths do not exist,
 stop and return `Verdict: NEEDS_CONTEXT` with what is missing.
 
@@ -107,9 +117,12 @@ plus the `client/CLAUDE.md` conventions listed in Step 5.
 
 ## Step 2 — Determine the file set
 
-- diff: `git diff --name-status <base>..HEAD` plus `git diff --name-status`
-  for uncommitted work and `git status --porcelain` for untracked files;
-  `git diff -U0 <base>..HEAD -- <file>` for the changed line numbers.
+- diff: `git diff --stat <base>..HEAD -- . ':(exclude)server/src/db/migrations/**' ':(exclude)**/pnpm-lock.yaml' ':(exclude)**/package-lock.json'`
+  plus `git diff --name-status` for uncommitted work and
+  `git status --porcelain` for untracked files; then
+  `git diff -U3 <base>..HEAD -- <file>` **per file** you review. Never print
+  the whole-range diff in one command (migration snapshots alone are tens of
+  thousands of tokens).
 - paths / module: every `.ts`/`.tsx` file under the given paths.
 - Skip what `pr-self-review/routing.json` excludes: lockfiles,
   `server/src/db/migrations/**`, binaries, snapshots,
@@ -246,8 +259,12 @@ Counts: critical <n> · major <n> · minor <n> · nit <n> · info <n>
 - Why: <rule broken + concrete consequence / failing scenario>
 - Fix direction: <where it should live / what to inject — no code rewrite>
 
+### Previous findings (delta mode only)
+- A1 — fixed | open | moved — `file:line` "<fresh quote>"
+
 ### Checklist (onion-architecture § Review checklist, + client/cross-package)
-- [x] / [ ] / n/a <item> — <file:line or one-word reason>
+- [ ] / n/a <item> — <file:line or one-word reason>
+- All other checklist items pass. (List only failed and n/a items; one line.)
 
 ### Not verified
 - <what you could not check and why (tool failed, file outside scope, …), or "—">

@@ -29,6 +29,22 @@
 плану реально є в коді → `architecture-reviewer` перевіряє структуру змін →
 `doc-writer` оновлює документацію → `/pr-self-review` перед PR.
 
+**Економія токенів без втрати перевірок.** Правила для оркестратора
+зібрані в `specs/plans/_template.md` §Execution:
+- `implementer` пише повний звіт у файл `specs/plans/reports/<feature>/T<n>.md`,
+  а оркестратору повертає короткий, до 15 рядків;
+- з плану і spec implementer читає тільки свою задачу та AC, на які вона
+  посилається;
+- задача з полем `Route: inline | agent:haiku | agent` виконується найдешевшим
+  способом: дрібну правку оркестратор робить сам, механічну задачу виконує
+  `haiku`;
+- worktree готує `scripts/worktree-bootstrap.sh`;
+- виправлення після рев'ю повертаються через `SendMessage` до того самого
+  implementer;
+- друге коло `architecture-reviewer` і `plan-verifier` працює в delta-режимі
+  (`previous` + `since`), а verifier повторно використовує
+  `verify-<sha>.md`, якщо пакет відтоді не змінювався.
+
 | Агент | Модель | Доступ | Призначення |
 |---|---|---|---|
 | [`researcher`](./researcher.md) | sonnet | тільки читання + веб | відповідає на конкретне питання з доказами |
@@ -101,7 +117,8 @@
 `react-best-practices`, `react-testing-library`, `zod`; SHARED: `zod` + схемні
 скіли). Далі працює test-first (red → green → refactor), запускає `Verify`
 і гейт пакета. Повертає статус `DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED`.
-Редагує тільки файли зі свого `Owns`. Git не чіпає. В `INSIGHTS.md` не пише,
+Редагує тільки файли зі свого `Owns`. Git не чіпає, крім одного коміту в
+worktree, коли делегування містить `commit: yes`. В `INSIGHTS.md` не пише,
 а лише пропонує кандидатів, які оркестратор записує через `engineering-insights`.
 Тому кілька екземплярів можуть працювати паралельно.
 

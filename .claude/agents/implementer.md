@@ -31,16 +31,33 @@ The delegation message must contain:
 - `plan: specs/plans/<feature>.md`
 - `task: T<n>`
 - optionally: interfaces/notes from earlier tasks.
+- optionally `report: <path>` — where to write the full report (see Report).
+- optionally `commit: yes` — you run in a worktree and must commit your work
+  (see Hard rules).
+- optionally `skip-verify: <command> — <reason>` — a Verify command the
+  orchestrator knows cannot run on this host; mark it `not run` with that
+  reason instead of running it.
 
 If the plan path or the task id is missing, or the task is not in the plan,
 stop immediately and return `Status: NEEDS_CONTEXT`.
 
-## Step 1 — Load context
+## Step 0 — Worktree setup (only if you run in a worktree)
 
-1. Read the whole plan: `## Architecture`, `## Cross-task decisions`, `## Risks`
-   and your task. Note other tasks' `Owns` in your wave — those files are
-   off-limits even if they look related.
-2. Read the spec the plan references — at least the ACs your task cites.
+If `server/node_modules` (or any package's) is missing, run
+`./scripts/worktree-bootstrap.sh .` from the worktree root once — it symlinks
+deps from the main checkout. Do not `npm ci` / `pnpm install`, and do not
+debug "Cannot find module" errors before running it.
+
+## Step 1 — Load context (read narrowly)
+
+1. From the plan read only: the header, `## Architecture`,
+   `## Cross-task decisions`, `## Risks`, **your task section**, and the
+   `Owns` lines of the other tasks in your wave (those files are off-limits
+   even if they look related). Use `grep -n '^### T\|^Owns:' <plan>` to find
+   them; skip other tasks' Steps.
+2. From the spec read only the ACs your task cites and the sections the task
+   names (e.g. `§3`) — `grep -n 'AC7\|^## 3' <spec>` then read those ranges.
+   Read more only if something is ambiguous.
 3. Read `<module>/CLAUDE.md` and `<module>/INSIGHTS.md` for every package in
    your `Owns` (root `CLAUDE.md` is already in your context). Treat INSIGHTS
    entries as rules.
@@ -81,7 +98,12 @@ infer it from the `Owns` paths and say so in the report.
   task owns both.
 - **Secrets** only through `SecretsProvider`; never in code, DB or `.env`.
 - **No git writes**: no `commit`, `push`, `checkout`, `stash`, `reset`. The
-  orchestrator merges.
+  orchestrator merges. Exception: with `commit: yes` (worktree runs), first
+  `git merge --ff-only <branch>` if the delegation names a branch, and at the
+  end `git add` your Owns files (+ the report file) and make **one** commit
+  with the message the delegation gives — nothing else.
+- **Report file** at the `report:` path is the one file you may write outside
+  Owns.
 - **Package managers**: pnpm in `server/` and `client/`; npm in
   `reviewer-core/` and `e2e/`. Do not install new dependencies unless the task
   says so; if you need one, return `BLOCKED`.
@@ -106,6 +128,13 @@ infer it from the `Owns` paths and say so in the report.
    - [SHARED]: `pnpm typecheck` in both `server/` and `client/`
    Fix and re-run until green. If the same failure survives three honest
    attempts, stop and report it.
+   - Pipe test output through a filter (`2>&1 | tail -15` or
+     `grep -E 'Tests |FAIL|error TS'`); read the full output only on failure.
+   - Run integration tests serially: `pnpm exec vitest run <x>.it.test.ts --no-file-parallelism`
+     (parallel testcontainers starts fail on this host).
+   - A command listed in `skip-verify:` or documented as host-broken in the
+     module's `INSIGHTS.md` (e.g. e2e on macOS 12) is not run — report it as
+     `not run: <reason>`, never as pass.
 
 ## When the plan does not match reality
 
@@ -116,7 +145,24 @@ plan expected and what you actually found. Small, local deviations that keep
 the task's `Interfaces` intact are allowed — report them as
 `DONE_WITH_CONCERNS`.
 
-## Report (your final message)
+## Report
+
+Two forms. If `report:` was given, write the **full** report below to that
+file and return only the **short** form as your final message. Without
+`report:`, return the full report.
+
+Short form (≤15 lines — this is what the orchestrator keeps in context):
+
+~~~markdown
+## T<n> — Status: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
+Commit: <branch> <sha> | not committed · Report: <path>
+Verify: <n>/<n> commands pass | <failing command + test name>
+Interfaces: <only signatures/values later tasks consume, or "—">
+Concerns: <≤3 bullets, one line each, or "—">
+Blocker: <only for BLOCKED / NEEDS_CONTEXT: needed to proceed>
+~~~
+
+Full form:
 
 ~~~markdown
 ## T<n> — <task title>

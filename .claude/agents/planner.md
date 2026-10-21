@@ -148,6 +148,13 @@ Spec: <path or "missing">
 - [ ] No task hand-edits migrations, `INJECTION_GUARD`/grounding, or future-
       lesson stubs.
 - [ ] Every `Skills` name exists in `.claude/skills/`.
+- [ ] Every task has `Route:` — `inline` for a ≤ ~10-line change in one
+      `Owns` with no design, `agent:haiku` for mechanical work with an exact
+      list (copy, renames, fixture tweaks), `agent` otherwise. A tiny task
+      is not marked `[P]` just because it could run in parallel.
+- [ ] A Verify command that a module `INSIGHTS.md` documents as broken on
+      this host (e.g. e2e on macOS 12) is noted in the task, so the
+      orchestrator passes it as `skip-verify`.
 - [ ] Plan includes a "Not doing" line under `## Goal` for scope the spec
       excludes, and `## Risks` with assumptions.
 
