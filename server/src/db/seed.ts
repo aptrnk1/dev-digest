@@ -186,6 +186,36 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
     ]);
   }
 
+  // ---- PR intent for #482 (Intent Layer) ----
+  // Same head_sha as the PR (not stale) and input_hash 'seed' so the first POST re-derives.
+  await db
+    .insert(t.prIntent)
+    .values({
+      prId: pr!.id,
+      intent: 'Protect the public API from abuse by rate limiting unauthenticated clients.',
+      inScope: [
+        'Token-bucket rate limiter middleware',
+        'Apply the limiter to public webhook endpoints',
+        'Rate-limit settings in config',
+      ],
+      outOfScope: ['Per-user quotas for authenticated clients', 'Distributed limiter state'],
+      riskAreas: [
+        { label: 'Secrets committed in config changes', kind: 'security' },
+        { label: 'N+1 queries under the new limiter', kind: 'performance' },
+      ],
+      confidence: 'medium',
+      basis: 'description',
+      sources: [
+        { kind: 'description', ref: 'pr-description', truncated: false },
+        { kind: 'inferred', ref: 'pr-signals', truncated: false },
+      ],
+      unresolvedRefs: [{ ref: 'PAY-482', reason: 'Jira — not fetched' }],
+      headSha: pr!.headSha,
+      inputHash: 'seed',
+      model: 'seed',
+    })
+    .onConflictDoNothing();
+
   // ---- built-in agents (the three starter presets) ----
   // Prompt bodies live in ./seed-prompts.ts (mirrored in docs/agent-prompts/*.md).
   const seedAgents: Array<typeof t.agents.$inferInsert> = [
