@@ -129,9 +129,9 @@ Verify: `cd e2e && npm run e2e:hermetic`
 ## Progress
 | Task | Status | Notes |
 |------|--------|-------|
-| T1 | todo | |
-| T2 | todo | |
-| T3 | todo | |
-| T4 | todo | |
+| T1 | done | DONE_WITH_CONCERNS: `head_sha` non-null in contract, mapper coalesces |
+| T2 | done | merged 351b8fb |
+| T3 | done | DONE_WITH_CONCERNS: pino fields only on HTTP path; body `.nullish()` |
+| T4 | done | DONE_WITH_CONCERNS: reuses `PROMPT_COLORS.specs`; hook tests under IntentCard/ |
 | T5 | todo | |
 | T6 | todo | |
