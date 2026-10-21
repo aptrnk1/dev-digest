@@ -1,4 +1,13 @@
-import type { Intent, IssueMeta, LLMProvider, PrIntentRecord, RepoRef } from '@devdigest/shared';
+import type {
+  Intent,
+  IntentBasis,
+  IntentConfidence,
+  IntentSource,
+  IssueMeta,
+  LLMProvider,
+  RepoRef,
+  UnresolvedRef,
+} from '@devdigest/shared';
 import type { IntentLog } from './types.js';
 
 export type { IntentLog };
@@ -18,8 +27,26 @@ export interface PullInputs {
   files: { path: string; additions: number; deletions: number }[];
 }
 
+/** Storage-neutral read model of a stored intent — NOT the wire contract (see `toPrIntentRecordDto`). */
+export interface IntentRecord {
+  prId: string;
+  intent: string;
+  inScope: string[];
+  outOfScope: string[];
+  riskAreas: Intent['risk_areas'];
+  confidence: IntentConfidence;
+  basis: IntentBasis;
+  sources: IntentSource[];
+  unresolvedRefs: UnresolvedRef[];
+  /** null for legacy rows written before head tracking. */
+  headSha: string | null;
+  model: string | null;
+  costUsd: number | null;
+  updatedAt: Date;
+}
+
 export interface StoredIntent {
-  record: PrIntentRecord;
+  record: IntentRecord;
   inputHash: string | null;
 }
 
@@ -36,7 +63,7 @@ export interface IntentStore {
   /** undefined = PR not found in the workspace. */
   loadPull(workspaceId: string, prId: string): Promise<PullInputs | undefined>;
   getIntent(prId: string): Promise<StoredIntent | undefined>;
-  upsertIntent(prId: string, row: NewIntent): Promise<PrIntentRecord>;
+  upsertIntent(prId: string, row: NewIntent): Promise<IntentRecord>;
 }
 
 /** GitHub issue lookup — wired to `GitHubClient.getIssue` in compose. */

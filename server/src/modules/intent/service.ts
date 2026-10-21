@@ -23,6 +23,7 @@ import {
   formatDescription,
   formatSignals,
   sourceLabel,
+  toPrIntentRecordDto,
   truncate,
   withTimeout,
 } from './helpers.js';
@@ -76,8 +77,8 @@ export class IntentService {
     if (!pull) throw new IntentDomainError('pr_not_found', 'Pull request not found');
     const stored = await this.deps.store.getIntent(prId);
     return {
-      intent: stored?.record ?? null,
-      stale: stored ? stored.record.head_sha !== pull.headSha : false,
+      intent: stored ? toPrIntentRecordDto(stored.record) : null,
+      stale: stored ? (stored.record.headSha ?? '') !== pull.headSha : false,
     };
   }
 
@@ -117,7 +118,7 @@ export class IntentService {
           },
           'intent: cache hit',
         );
-        return stored.record;
+        return toPrIntentRecordDto(stored.record);
       }
     }
 
@@ -169,7 +170,7 @@ export class IntentService {
       },
       'intent: derived',
     );
-    return record;
+    return toPrIntentRecordDto(record);
   }
 
   // ------------------------------------------------------------------ internals

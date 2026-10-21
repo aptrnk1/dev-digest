@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import type { Intent, IntentSource, RepoRef, UnresolvedRef } from '@devdigest/shared';
+import type { Intent, IntentSource, PrIntentRecord, RepoRef, UnresolvedRef } from '@devdigest/shared';
+import type { IntentRecord } from './ports.js';
 import {
   MAX_COMMIT_LINE_CHARS,
   NOT_JIRA_PREFIXES,
@@ -17,6 +18,25 @@ export function sha256(s: string): string {
 export function truncate(text: string, max: number): { text: string; truncated: boolean } {
   if (text.length <= max) return { text, truncated: false };
   return { text: text.slice(0, max) + TRUNCATION_MARK, truncated: true };
+}
+
+/** Read model → wire contract (legacy null `headSha` → '', Date → ISO). */
+export function toPrIntentRecordDto(r: IntentRecord): PrIntentRecord {
+  return {
+    pr_id: r.prId,
+    intent: r.intent,
+    in_scope: r.inScope,
+    out_of_scope: r.outOfScope,
+    risk_areas: r.riskAreas,
+    confidence: r.confidence,
+    basis: r.basis,
+    sources: r.sources,
+    unresolved_refs: r.unresolvedRefs,
+    head_sha: r.headSha ?? '',
+    model: r.model,
+    cost_usd: r.costUsd,
+    updated_at: r.updatedAt.toISOString(),
+  };
 }
 
 // ---------------------------------------------------------------- refs

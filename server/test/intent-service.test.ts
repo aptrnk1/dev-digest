@@ -6,6 +6,7 @@ import type {
   IntentStore,
   NewIntent,
   PullInputs,
+  IntentRecord,
   StoredIntent,
 } from '../src/modules/intent/ports.js';
 
@@ -35,10 +36,23 @@ class FakeStore implements IntentStore {
   async getIntent(): Promise<StoredIntent | undefined> {
     return this.stored;
   }
-  async upsertIntent(prId: string, row: NewIntent): Promise<PrIntentRecord> {
-    const { input_hash, tokens_in: _a, tokens_out: _b, ...rest } = row;
-    const record: PrIntentRecord = { ...rest, pr_id: prId, updated_at: '2026-01-01T00:00:00.000Z' };
-    this.stored = { record, inputHash: input_hash };
+  async upsertIntent(prId: string, row: NewIntent): Promise<IntentRecord> {
+    const record: IntentRecord = {
+      prId,
+      intent: row.intent,
+      inScope: row.in_scope,
+      outOfScope: row.out_of_scope,
+      riskAreas: row.risk_areas,
+      confidence: row.confidence,
+      basis: row.basis,
+      sources: row.sources,
+      unresolvedRefs: row.unresolved_refs,
+      headSha: row.head_sha,
+      model: row.model,
+      costUsd: row.cost_usd,
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    };
+    this.stored = { record, inputHash: row.input_hash };
     return record;
   }
 }

@@ -1,31 +1,30 @@
 import { and, asc, eq } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
-import type { IntentBasis, IntentConfidence, IntentRiskKind, PrIntentRecord } from '@devdigest/shared';
-import type { IntentStore, NewIntent, PullInputs, StoredIntent } from './ports.js';
+import type { IntentBasis, IntentConfidence, IntentRiskKind } from '@devdigest/shared';
+import type { IntentRecord, IntentStore, NewIntent, PullInputs, StoredIntent } from './ports.js';
 import { MAX_COMMITS, MAX_PATHS } from './constants.js';
 
 type IntentRow = typeof t.prIntent.$inferSelect;
 
-const toStored = (r: IntentRow): StoredIntent => ({
-  inputHash: r.inputHash,
-  record: {
-    pr_id: r.prId,
-    intent: r.intent,
-    in_scope: r.inScope,
-    out_of_scope: r.outOfScope,
-    risk_areas: r.riskAreas.map((a) => ({ label: a.label, kind: a.kind as IntentRiskKind })),
-    confidence: r.confidence as IntentConfidence,
-    // legacy rows (pre-Intent Layer) have no basis — they were never evidence-graded
-    basis: (r.basis ?? 'inferred') as IntentBasis,
-    sources: r.sources.map((s) => ({ kind: s.kind as IntentBasis, ref: s.ref, truncated: s.truncated })),
-    unresolved_refs: r.unresolvedRefs,
-    head_sha: r.headSha ?? '',
-    model: r.model,
-    cost_usd: r.costUsd,
-    updated_at: r.updatedAt.toISOString(),
-  },
+const toRecord = (r: IntentRow): IntentRecord => ({
+  prId: r.prId,
+  intent: r.intent,
+  inScope: r.inScope,
+  outOfScope: r.outOfScope,
+  riskAreas: r.riskAreas.map((a) => ({ label: a.label, kind: a.kind as IntentRiskKind })),
+  confidence: r.confidence as IntentConfidence,
+  // legacy rows (pre-Intent Layer) have no basis — they were never evidence-graded
+  basis: (r.basis ?? 'inferred') as IntentBasis,
+  sources: r.sources.map((s) => ({ kind: s.kind as IntentBasis, ref: s.ref, truncated: s.truncated })),
+  unresolvedRefs: r.unresolvedRefs,
+  headSha: r.headSha,
+  model: r.model,
+  costUsd: r.costUsd,
+  updatedAt: r.updatedAt,
 });
+
+const toStored = (r: IntentRow): StoredIntent => ({ inputHash: r.inputHash, record: toRecord(r) });
 
 /** Drizzle adapter for `pr_intent` (sole owner) + the PR reads the classifier needs. */
 export class IntentRepository implements IntentStore {
@@ -81,7 +80,7 @@ export class IntentRepository implements IntentStore {
     return row && toStored(row);
   }
 
-  async upsertIntent(prId: string, row: NewIntent): Promise<PrIntentRecord> {
+  async upsertIntent(prId: string, row: NewIntent): Promise<IntentRecord> {
     const values = {
       intent: row.intent,
       inScope: row.in_scope,
@@ -104,6 +103,6 @@ export class IntentRepository implements IntentStore {
       .values({ prId, ...values })
       .onConflictDoUpdate({ target: t.prIntent.prId, set: values })
       .returning();
-    return toStored(saved!).record;
+    return toRecord(saved!);
   }
 }
