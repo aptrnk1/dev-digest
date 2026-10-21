@@ -53,11 +53,17 @@
   },
   "smartDiff": {
     "coreLabel": "Core",
+    "testsLabel": "Tests",
     "wiringLabel": "Wiring",
+    "docsLabel": "Docs",
     "boilerplateLabel": "Boilerplate",
     "largeTitle": "This PR is large ({lines} changed lines)",
     "largeBody": "Consider splitting it into smaller, focused PRs for easier review:",
     "filesCount": "{count} files",
+    "filesWithFindings": "{count} with findings",
+    "findingsOutsideDiff": "Findings outside the visible diff",
+    "findingsCount": "{count, plural, one {# finding} other {# findings}}",
+    "filesChangedTitle": "Files changed · {count} files",
     "findingLines": "{count} finding-lines",
     "groupedByRole": "Smart Diff · grouped by role"
   },

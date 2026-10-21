@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Severity } from './findings.js';
 
 /**
  * PR Brief building blocks: Intent, Blast radius, Risks, PR History,
@@ -107,7 +108,7 @@ export const PrHistory = z.object({
 export type PrHistory = z.infer<typeof PrHistory>;
 
 // ---- Smart Diff ----
-export const SmartDiffRole = z.enum(['core', 'wiring', 'boilerplate']);
+export const SmartDiffRole = z.enum(['core', 'tests', 'wiring', 'docs', 'boilerplate']);
 export type SmartDiffRole = z.infer<typeof SmartDiffRole>;
 
 export const SmartDiffFile = z.object({
@@ -116,12 +117,16 @@ export const SmartDiffFile = z.object({
   additions: z.number().int(),
   deletions: z.number().int(),
   finding_lines: z.array(z.number().int()),
+  finding_ids: z.array(z.string()),
+  max_severity: Severity.nullable(),
+  rank_percentile: z.number().nullable(),
 });
 export type SmartDiffFile = z.infer<typeof SmartDiffFile>;
 
 export const SmartDiffGroup = z.object({
   role: SmartDiffRole,
   files: z.array(SmartDiffFile),
+  files_with_findings: z.number().int(),
 });
 export type SmartDiffGroup = z.infer<typeof SmartDiffGroup>;
 
