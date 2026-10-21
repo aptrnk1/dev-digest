@@ -3,6 +3,7 @@
 "use client";
 
 import React from "react";
+import type { FindingRecord } from "@devdigest/shared";
 import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from "../comments";
 import { type Line } from "../helpers";
 import { s, lineRowFor, lineSignFor } from "../styles";
@@ -14,11 +15,16 @@ export function CodeLine({
   path,
   threads,
   commenting,
+  findings,
+  renderFinding,
 }: {
   ln: Line;
   path: string;
   threads: CommentThread[];
   commenting?: DiffCommentApi;
+  /** Review findings anchored to this line (shown regardless of the comments toggle). */
+  findings?: FindingRecord[];
+  renderFinding?: (f: FindingRecord) => React.ReactNode;
 }) {
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
@@ -68,6 +74,13 @@ export function CodeLine({
         commenting.showComments &&
         threads.map((th) => (
           <CommentThreadView key={th.rootId} thread={th} commenting={commenting} path={path} />
+        ))}
+
+      {renderFinding &&
+        findings?.map((f) => (
+          <div key={f.id} style={s.inlineFinding}>
+            {renderFinding(f)}
+          </div>
         ))}
 
       {commenting && composing && target && (
