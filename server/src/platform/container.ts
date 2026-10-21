@@ -27,6 +27,10 @@ import { AgentsRepository } from '../modules/agents/repository.js';
 import { ReviewRepository } from '../modules/reviews/repository.js';
 import type { IntentFacade } from '../modules/intent/types.js';
 import { createIntentFacade } from '../modules/intent/compose.js';
+import type { ReviewsFacade } from '../modules/reviews/types.js';
+import { createReviewsFacade } from '../modules/reviews/compose.js';
+import type { SmartDiffFacade } from '../modules/smart-diff/types.js';
+import { createSmartDiffFacade } from '../modules/smart-diff/compose.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
@@ -52,6 +56,10 @@ export interface ContainerOverrides {
   repoIntel?: RepoIntel;
   /** Intent Layer facade — tests inject a stub instead of the LLM-backed one. */
   intent?: IntentFacade;
+  /** Reviews read facade — tests inject a stub instead of the DB-backed one. */
+  reviews?: ReviewsFacade;
+  /** Smart Diff facade — route tests inject a stub (no DB). */
+  smartDiff?: SmartDiffFacade;
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
@@ -78,6 +86,8 @@ export class Container {
   private _reviewRepo?: ReviewRepository;
   private _repoIntel?: RepoIntel;
   private _intent?: IntentFacade;
+  private _reviews?: ReviewsFacade;
+  private _smartDiff?: SmartDiffFacade;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
   private _priceBook?: PriceBook;
@@ -130,6 +140,20 @@ export class Container {
     if (this.overrides.intent) return this.overrides.intent;
     this._intent ??= createIntentFacade(this);
     return this._intent;
+  }
+
+  /** Reviews read facade (reviews of a PR) for other modules. */
+  get reviews(): ReviewsFacade {
+    if (this.overrides.reviews) return this.overrides.reviews;
+    this._reviews ??= createReviewsFacade(this);
+    return this._reviews;
+  }
+
+  /** Smart Diff facade — grouped PR files + findings overlay. */
+  get smartDiff(): SmartDiffFacade {
+    if (this.overrides.smartDiff) return this.overrides.smartDiff;
+    this._smartDiff ??= createSmartDiffFacade(this);
+    return this._smartDiff;
   }
 
   /** Import-graph builder (dependency-cruiser). T3 indexer pipeline only. */

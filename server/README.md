@@ -76,6 +76,7 @@ flowchart TB
     skills["skills (L02)<br/>/skills · /skills/:id(/versions|/stats) · /skills/import/preview"]
     conventions["conventions (L02)<br/>/repos/:id/conventions(/extract|/bulk) · /conventions/:id"]
     intent["intent<br/>GET/POST /pulls/:id/intent"]
+    smartDiff["smart-diff<br/>GET /pulls/:id/smart-diff"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
