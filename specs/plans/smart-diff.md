@@ -203,9 +203,9 @@ Goal: every check below still runs; tokens are saved by not repeating work.
 ## Progress
 | Task | Status | Notes |
 |------|--------|-------|
-| T1 | todo | |
-| T2 | todo | |
-| T3 | todo | |
-| T4 | todo | |
-| T5 | todo | |
-| T6 | todo | |
+| T1 | done | contracts byte-identical; 14 contract tests |
+| T2 | done | types.ts holds read models (domain-is-pure rule) |
+| T3 | done | orchestrator fix 8a7bd3e: hunks-only patches, key on config.ts:12, counts from patches |
+| T4 | done | 122 client tests |
+| T5 | done | 4 it tests |
+| T6 | done (inline) | skip-verify: macOS 12 host |
