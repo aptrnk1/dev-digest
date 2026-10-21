@@ -4,15 +4,19 @@ import { NextIntlClientProvider } from "next-intl";
 import type { PrIntentState } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/brief.json";
 
-const state: { query: Record<string, unknown> } = { query: {} };
+const state: { query: Record<string, unknown>; derive: Record<string, unknown> } = {
+  query: {},
+  derive: {},
+};
 const mutate = vi.fn();
 const refetch = vi.fn();
 
 vi.mock("@/lib/hooks/intent", () => ({
   usePrIntent: () => state.query,
-  useDeriveIntent: () => ({ mutate, isPending: false }),
+  useDeriveIntent: () => ({ mutate, isPending: false, isError: false, error: null, ...state.derive }),
 }));
 
+import { ApiError } from "@/lib/api";
 import { IntentCard } from "./IntentCard";
 
 const INTENT: NonNullable<PrIntentState["intent"]> = {
@@ -34,8 +38,13 @@ const INTENT: NonNullable<PrIntentState["intent"]> = {
   unresolved_refs: [{ ref: "#999", reason: "not found" }],
 };
 
-function ui(data: PrIntentState | undefined, extra: Record<string, unknown> = {}) {
+function ui(
+  data: PrIntentState | undefined,
+  extra: Record<string, unknown> = {},
+  derive: Record<string, unknown> = {},
+) {
   state.query = { data, isLoading: false, isError: false, refetch, ...extra };
+  state.derive = derive;
   return render(
     <NextIntlClientProvider locale="en" messages={{ brief: messages }}>
       <IntentCard prId="pr1" />
@@ -79,11 +88,36 @@ describe("IntentCard", () => {
     expect(screen.getByText("issue #12")).toBeInTheDocument();
   });
 
-  it("empty state derives on click", () => {
-    ui({ intent: null, stale: false });
+  it("auto-derives once when no intent is stored", () => {
+    const { rerender } = ui({ intent: null, stale: false });
+    expect(screen.getByTestId("intent-deriving")).toBeInTheDocument();
+    expect(screen.getByText("Deriving intent…")).toBeInTheDocument();
+    rerender(
+      <NextIntlClientProvider locale="en" messages={{ brief: messages }}>
+        <IntentCard prId="pr1" />
+      </NextIntlClientProvider>,
+    );
+    expect(mutate).toHaveBeenCalledTimes(1);
+    expect(mutate).toHaveBeenCalledWith({});
+  });
+
+  it("does not auto-derive a stored or stale intent", () => {
+    ui({ intent: INTENT, stale: true });
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it("failed auto-derive falls back to the empty state with a manual retry", () => {
+    ui({ intent: null, stale: false }, {}, { isError: true, error: new ApiError("x", 422, "llm_not_configured") });
     expect(screen.getByText("Intent not derived yet")).toBeInTheDocument();
+    expect(screen.getByText(/No LLM key for the intent model/)).toBeInTheDocument();
+    mutate.mockClear();
     fireEvent.click(screen.getByRole("button", { name: /Derive intent/ }));
     expect(mutate).toHaveBeenCalledWith({});
+  });
+
+  it("other derive errors show a generic hint", () => {
+    ui({ intent: null, stale: false }, {}, { isError: true, error: new ApiError("boom", 500) });
+    expect(screen.getByText("Could not derive the intent. Try again.")).toBeInTheDocument();
   });
 
   it("stale shows Outdated and re-derives with force", () => {

@@ -18,7 +18,8 @@
 ## 2. User stories
 - Як рецензент, на **Overview** PR я бачу картку INTENT: цитату наміру, IN SCOPE /
   OUT OF SCOPE, RISK AREAS, рівень впевненості і з яких джерел це виведено.
-- Як рецензент, я можу отримати intent **до** запуску рев'ю (кнопка «Derive intent»).
+- Як рецензент, я отримую intent **до** запуску рев'ю: він рахується автоматично при
+  першому відкритті Overview, якщо збереженого ще немає (кнопка «Derive intent» — запасний шлях).
 - Як рецензент, агенти отримують intent у промпт і можуть позначати зміни поза
   заявленим scope.
 - Як власник воркспейсу, я обираю модель класифікатора в Settings → Feature Models.
@@ -94,8 +95,12 @@ tier, LLM може її лише знизити (`confidence = min(ceiling, llm_
   commits and changed files — PR has no description».
 - Футер «Derived from: spec `specs/x.md` · issue #12 · description»; `unresolved_refs`
   сірим («JIRA-42 — not fetched»).
-- Empty state «Intent not derived yet» + кнопка «Derive intent»; `stale` → бейдж
-  «Outdated» + «Re-derive». Loading → `Skeleton`, помилка → `ErrorState`.
+- Немає збереженого intent → один автоматичний `POST /pulls/:id/intent` на відкриття
+  (стан «Deriving intent…» + `Skeleton`). Якщо він упав — empty state «Intent not
+  derived yet» + кнопка «Derive intent» і підказка (422 `llm_not_configured` →
+  «No LLM key for the intent model…»), без повторних автоспроб.
+- `stale` → бейдж «Outdated» + «Re-derive» (лише вручну, автоперерахунку немає).
+  Loading → `Skeleton`, помилка GET → `ErrorState`.
 - Хуки `usePrIntent(prId)` / `useDeriveIntent(prId)` (invalidate після Run Review).
 - Трасування: drawer прогону → Prompt assembly показує блок `intent`.
 - i18n: `client/messages/en/brief.json` (без `<word>` у рядках).

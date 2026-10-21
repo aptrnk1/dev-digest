@@ -1,10 +1,13 @@
 /* IntentCard — what the PR is trying to do (derived from spec/ticket/description):
-   quote, scope, risk areas, confidence + provenance. Sits above Description. */
+   quote, scope, risk areas, confidence + provenance. Sits above Description.
+   With no stored intent it derives one once on open (cheap classifier, cached
+   by input hash); a stale intent is only re-derived on request. */
 "use client";
 
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Button, Chip, EmptyState, ErrorState, SectionLabel, Skeleton } from "@devdigest/ui";
+import { ApiError } from "@/lib/api";
 import { useDeriveIntent, usePrIntent } from "@/lib/hooks/intent";
 import { RISK_ICON } from "./constants";
 import { s } from "./styles";
@@ -19,6 +22,16 @@ export function IntentCard({ prId }: { prId: string | null }) {
   const t = useTranslations("brief.intent");
   const { data, isLoading, isError, refetch } = usePrIntent(prId);
   const derive = useDeriveIntent(prId);
+  const autoDerivedFor = React.useRef<string | null>(null);
+  const missing = !!prId && !!data && !data.intent;
+
+  // Auto-derive once per PR when nothing is stored. A failure falls back to
+  // the manual empty state below — no retry loop.
+  React.useEffect(() => {
+    if (!missing || autoDerivedFor.current === prId) return;
+    autoDerivedFor.current = prId;
+    derive.mutate({});
+  }, [missing, prId, derive]);
 
   if (isLoading) {
     return (
@@ -39,7 +52,20 @@ export function IntentCard({ prId }: { prId: string | null }) {
   }
 
   const intent = data?.intent ?? null;
+  if (!intent && !derive.isError) {
+    return (
+      <section data-testid="intent-deriving">
+        <SectionLabel icon="Target">{t("title")}</SectionLabel>
+        <div style={s.card}>
+          <div style={s.hint}>{t("deriving")}</div>
+          <Skeleton height={96} />
+        </div>
+      </section>
+    );
+  }
+
   if (!intent) {
+    const notConfigured = derive.error instanceof ApiError && derive.error.code === "llm_not_configured";
     return (
       <section>
         <SectionLabel icon="Target">{t("title")}</SectionLabel>
@@ -52,6 +78,7 @@ export function IntentCard({ prId }: { prId: string | null }) {
             onCta={() => derive.mutate({})}
             ctaLoading={derive.isPending}
           />
+          <div style={s.hint}>{t(notConfigured ? "deriveError.notConfigured" : "deriveError.generic")}</div>
         </div>
       </section>
     );

@@ -50,6 +50,11 @@
       "cta": "Derive intent"
     },
     "rederive": "Re-derive",
+    "deriving": "Deriving intent…",
+    "deriveError": {
+      "notConfigured": "No LLM key for the intent model — add one in Settings → Feature Models.",
+      "generic": "Could not derive the intent. Try again."
+    },
     "error": {
       "title": "Couldn't load the intent",
       "body": "The PR intent could not be loaded."
