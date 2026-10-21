@@ -25,6 +25,7 @@ const PROMPT_BLOCKS = [
   'skills',
   'memory',
   'specs',
+  'intent',
   'callers',
   'repo_map',
   'pr_description',
@@ -127,6 +128,18 @@ export class ReviewRunExecutor {
     }
     runLog.info(`Diff ready — ${diff.files.length} changed file(s); starting ${jobs.length} agent run(s)`);
 
+    // Intent Layer pre-work: derive (or reuse the cached) PR intent once for all
+    // agents. Best-effort — a classifier failure/timeout is logged as an error
+    // line and the run continues without a `## PR intent` block (AC6). Its LLM
+    // cost is intentionally not attributed to any agent run.
+    let intent: string | undefined;
+    try {
+      const record = await this.container.intent.ensure(workspaceId, pull.id, { log: runLog });
+      intent = this.container.intent.renderForPrompt(record);
+    } catch (err) {
+      runLog.error(`Intent derivation failed — continuing without it: ${(err as Error).message}`);
+    }
+
     for (const { agent, runId } of jobs) {
       const agentStart = Date.now();
       logger?.info(
@@ -134,7 +147,7 @@ export class ReviewRunExecutor {
         `review: agent "${agent.name}" started (${agent.provider}/${agent.model})`,
       );
       try {
-        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog);
+        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog, intent);
         logger?.info(
           {
             runId,
@@ -166,6 +179,7 @@ export class ReviewRunExecutor {
     agent: AgentRow,
     runId: string,
     parentLog: RunLogger,
+    intent?: string,
   ): Promise<RunOutcome> {
     const start = Date.now();
     // Narrow the fanned-out pre-work logger to THIS run; the shared diff/intent
@@ -230,6 +244,8 @@ export class ReviewRunExecutor {
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
+        // Intent Layer — rendered intent; reviewer-core wraps it as untrusted.
+        ...(intent ? { intent } : {}),
         ...(skills.length > 0 ? { skills: skills.map((sk) => sk.text) } : {}),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
