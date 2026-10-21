@@ -133,5 +133,5 @@ Verify: `cd e2e && npm run e2e:hermetic`
 | T2 | done | merged 351b8fb |
 | T3 | done | DONE_WITH_CONCERNS: pino fields only on HTTP path; body `.nullish()` |
 | T4 | done | DONE_WITH_CONCERNS: reuses `PROMPT_COLORS.specs`; hook tests under IntentCard/ |
-| T5 | todo | |
-| T6 | todo | |
+| T5 | done | reviews.it 8/8; pino §10 fields absent on Run Review path (open) |
+| T6 | done (unverified) | e2e cannot run on macOS 12 host (e2e/INSIGHTS 2026-10-18) |
