@@ -6,10 +6,39 @@ import { z } from 'zod';
  */
 
 // ---- Intent ----
+export const IntentRiskKind = z.enum(['security', 'dependency', 'performance', 'data', 'api', 'other']);
+export type IntentRiskKind = z.infer<typeof IntentRiskKind>;
+
+export const IntentConfidence = z.enum(['high', 'medium', 'low']);
+export type IntentConfidence = z.infer<typeof IntentConfidence>;
+
+export const IntentBasis = z.enum(['spec', 'ticket', 'description', 'inferred']);
+export type IntentBasis = z.infer<typeof IntentBasis>;
+
+/** One input the intent was derived from (spec file, issue, PR description, signals). */
+export const IntentSource = z.object({
+  kind: IntentBasis,
+  ref: z.string(),
+  truncated: z.boolean(),
+});
+export type IntentSource = z.infer<typeof IntentSource>;
+
+/** A reference found in the PR that could not be resolved/fetched. */
+export const UnresolvedRef = z.object({
+  ref: z.string(),
+  reason: z.string(),
+});
+export type UnresolvedRef = z.infer<typeof UnresolvedRef>;
+
 export const Intent = z.object({
   intent: z.string(),
   in_scope: z.array(z.string()),
   out_of_scope: z.array(z.string()),
+  risk_areas: z.array(z.object({ label: z.string(), kind: IntentRiskKind })),
+  confidence: IntentConfidence,
+  basis: IntentBasis,
+  sources: z.array(IntentSource),
+  unresolved_refs: z.array(UnresolvedRef),
 });
 export type Intent = z.infer<typeof Intent>;
 

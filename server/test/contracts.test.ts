@@ -15,6 +15,9 @@ import {
   Settings,
   Repo,
   PrDetail,
+  PrIntentState,
+  PromptAssembly,
+  FEATURE_MODELS,
 } from '@devdigest/shared';
 
 /**
@@ -67,7 +70,16 @@ describe('AI contracts parse fixtures', () => {
 
   it('Intent / BlastRadius / Risks / PrHistory', () => {
     expect(() =>
-      Intent.parse({ intent: 'x', in_scope: ['a'], out_of_scope: ['b'] }),
+      Intent.parse({
+        intent: 'x',
+        in_scope: ['a'],
+        out_of_scope: ['b'],
+        risk_areas: [],
+        confidence: 'low',
+        basis: 'inferred',
+        sources: [],
+        unresolved_refs: [],
+      }),
     ).not.toThrow();
     expect(() =>
       BlastRadius.parse({
@@ -206,5 +218,46 @@ describe('platform DTOs', () => {
         commits: [],
       }),
     ).not.toThrow();
+  });
+});
+
+describe('Intent layer contracts', () => {
+  const intent = {
+    intent: 'Add retry to webhook delivery',
+    in_scope: ['retry loop'],
+    out_of_scope: ['queue rewrite'],
+    risk_areas: [{ label: 'duplicate delivery', kind: 'api' }],
+    confidence: 'medium',
+    basis: 'description',
+    sources: [{ kind: 'description', ref: 'pr-description', truncated: false }],
+    unresolved_refs: [{ ref: 'ABC-123', reason: 'Jira not supported' }],
+  };
+
+  it('parses a full Intent and PrIntentState', () => {
+    expect(Intent.parse(intent).risk_areas).toHaveLength(1);
+    const state = PrIntentState.parse({
+      intent: {
+        ...intent,
+        pr_id: 'p1',
+        head_sha: 'abc',
+        model: null,
+        cost_usd: null,
+        updated_at: null,
+      },
+      stale: false,
+    });
+    expect(state.stale).toBe(false);
+    expect(PrIntentState.parse({ intent: null, stale: false }).intent).toBeNull();
+  });
+
+  it('PromptAssembly without intent still parses (legacy traces)', () => {
+    const pa = PromptAssembly.parse({ system: 's', user: 'u' });
+    expect(pa.intent).toBeUndefined();
+  });
+
+  it('review_intent defaults to openrouter Haiku 4.5', () => {
+    const m = FEATURE_MODELS.find((f) => f.id === 'review_intent');
+    expect(m?.defaultProvider).toBe('openrouter');
+    expect(m?.defaultModel).toBe('anthropic/claude-haiku-4-5');
   });
 });
