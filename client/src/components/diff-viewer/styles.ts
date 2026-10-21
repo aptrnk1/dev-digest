@@ -36,6 +36,22 @@ export const s = {
     padding: "8px 0",
     background: "var(--bg-surface)",
   } satisfies CSSProperties,
+  inlineFinding: { padding: "6px 14px 6px 58px" } satisfies CSSProperties,
+  findingBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    fontSize: 12,
+    fontWeight: 600,
+  } satisfies CSSProperties,
+  fileFindings: {
+    padding: "8px 14px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    borderTop: "1px solid var(--border)",
+  } satisfies CSSProperties,
+  fileFindingsLabel: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
   noDiff: {
     padding: "14px 18px",
     fontSize: 13,
