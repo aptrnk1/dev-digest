@@ -50,7 +50,6 @@ export const s = {
   } satisfies CSSProperties,
   unresolved: {
     opacity: 0.5,
-    textDecoration: "line-through",
   } satisfies CSSProperties,
   right: { display: "flex", alignItems: "center", gap: 8 } satisfies CSSProperties,
 } as const;

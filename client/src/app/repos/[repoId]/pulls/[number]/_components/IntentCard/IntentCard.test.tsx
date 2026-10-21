@@ -57,18 +57,31 @@ describe("IntentCard", () => {
     expect(screen.getByText("High confidence")).toBeInTheDocument();
     expect(screen.getByText(/Derived from/)).toBeInTheDocument();
     expect(screen.getByText(/specs\/rate\.md/)).toBeInTheDocument();
-    expect(screen.getByText("#999")).toHaveStyle({ opacity: "0.5" });
+    expect(screen.getByText("#999 — not found")).toHaveStyle({ opacity: "0.5" });
+    expect(screen.getByText(/^spec specs\/rate\.md/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Token bypass" })).toBeInTheDocument();
     expect(screen.queryByText("Outdated")).toBeNull();
-    expect(screen.queryByText(/Low confidence:/)).toBeNull();
+    expect(screen.queryByText(/PR has no description/)).toBeNull();
   });
 
   it("shows a hint on low confidence", () => {
     ui({ intent: { ...INTENT, confidence: "low" }, stale: false });
-    expect(screen.getByText(/Low confidence:/)).toBeInTheDocument();
+    expect(
+      screen.getByText("Inferred from branch, commits and changed files — PR has no description"),
+    ).toBeInTheDocument();
+  });
+
+  it("labels ticket sources as issue", () => {
+    ui({
+      intent: { ...INTENT, sources: [{ kind: "ticket", ref: "#12", truncated: false }] },
+      stale: false,
+    });
+    expect(screen.getByText("issue #12")).toBeInTheDocument();
   });
 
   it("empty state derives on click", () => {
     ui({ intent: null, stale: false });
+    expect(screen.getByText("Intent not derived yet")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Derive intent/ }));
     expect(mutate).toHaveBeenCalledWith({});
   });

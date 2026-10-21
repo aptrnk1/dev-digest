@@ -33,13 +33,19 @@
       "medium": "Medium confidence",
       "low": "Low confidence"
     },
-    "lowHint": "Low confidence: the PR gives little to go on, so treat this intent as a guess.",
+    "sourceKind": {
+      "spec": "spec",
+      "ticket": "issue",
+      "description": "description",
+      "inferred": "inferred"
+    },
+    "lowHint": "Inferred from branch, commits and changed files — PR has no description",
     "unresolved": "Could not resolve",
     "truncated": "truncated",
     "stale": "Outdated",
     "staleHint": "The PR changed since this intent was derived.",
     "empty": {
-      "title": "No intent derived yet",
+      "title": "Intent not derived yet",
       "body": "Derive what this PR is trying to do, from its spec, ticket and description.",
       "cta": "Derive intent"
     },

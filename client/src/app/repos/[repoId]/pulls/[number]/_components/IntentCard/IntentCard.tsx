@@ -4,7 +4,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge, Button, EmptyState, ErrorState, SectionLabel, Skeleton } from "@devdigest/ui";
+import { Badge, Button, Chip, EmptyState, ErrorState, SectionLabel, Skeleton } from "@devdigest/ui";
 import { useDeriveIntent, usePrIntent } from "@/lib/hooks/intent";
 import { RISK_ICON } from "./constants";
 import { s } from "./styles";
@@ -117,9 +117,9 @@ export function IntentCard({ prId }: { prId: string | null }) {
             <div style={s.scopeLabel}>{t("risks")}</div>
             <div style={s.chips}>
               {intent.risk_areas.map((r, i) => (
-                <Badge key={i} icon={RISK_ICON[r.kind]}>
+                <Chip key={i} icon={RISK_ICON[r.kind]}>
                   {r.label}
-                </Badge>
+                </Chip>
               ))}
             </div>
           </div>
@@ -128,15 +128,21 @@ export function IntentCard({ prId }: { prId: string | null }) {
         <div style={s.footer}>
           <span>{t("derivedFrom")}:</span>
           {intent.sources.map((src, i) => (
-            <span key={`s${i}`} className="mono">
-              {src.kind} {src.ref}
-              {src.truncated ? ` (${t("truncated")})` : ""}
-            </span>
+            <React.Fragment key={`s${i}`}>
+              {i > 0 && <span aria-hidden>·</span>}
+              <span className="mono">
+                {t(`sourceKind.${src.kind}`)} {src.ref}
+                {src.truncated ? ` (${t("truncated")})` : ""}
+              </span>
+            </React.Fragment>
           ))}
           {intent.unresolved_refs.map((u, i) => (
-            <span key={`u${i}`} className="mono" style={s.unresolved} title={`${t("unresolved")}: ${u.reason}`}>
-              {u.ref}
-            </span>
+            <React.Fragment key={`u${i}`}>
+              {(i > 0 || intent.sources.length > 0) && <span aria-hidden>·</span>}
+              <span className="mono" style={s.unresolved}>
+                {u.ref} — {u.reason}
+              </span>
+            </React.Fragment>
           ))}
         </div>
       </div>

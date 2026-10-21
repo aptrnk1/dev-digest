@@ -102,7 +102,7 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
           />
         )}
         {pa.intent != null && (
-          <PromptBlock label={t("trace.prompt.intent")} text={pa.intent} color={PROMPT_COLORS.specs} tokens={tokens?.intent} />
+          <PromptBlock label={t("trace.prompt.intent")} text={pa.intent} color={PROMPT_COLORS.intent} tokens={tokens?.intent} />
         )}
         {pa.specs != null && (
           <PromptBlock label={t("trace.prompt.specs")} text={pa.specs} color={PROMPT_COLORS.specs} tokens={tokens?.specs} />
