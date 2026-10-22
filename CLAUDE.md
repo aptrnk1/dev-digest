@@ -17,12 +17,14 @@ one feature as a new self-contained module — keep changes inside that module.
 - client: `cd client && pnpm typecheck && pnpm test`
 - reviewer-core: `cd reviewer-core && npm run typecheck && npm test` (npm, not pnpm)
 - e2e: `cd e2e && npm run e2e:hermetic` (npm, not pnpm)
+- mcp: `cd mcp && npm run typecheck && npm run arch:check && npm test` (npm, not pnpm)
 
 ## Map
 - `server/`        API, DB, adapters, repo-intel indexer      → server/CLAUDE.md
 - `client/`        Next.js studio UI                          → client/CLAUDE.md
 - `reviewer-core/` pure review engine (prompt → LLM → grounding) → reviewer-core/CLAUDE.md
 - `e2e/`           deterministic browser flows                → e2e/CLAUDE.md
+- `mcp/`           MCP stdio server over the HTTP API         → mcp/CLAUDE.md
 - `docs/agent-prompts/` system prompts of the built-in agents
 - Root `docs/` · `specs/` · `INSIGHTS.md` — only for things that span packages.
 
