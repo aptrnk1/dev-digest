@@ -1,4 +1,19 @@
 {
+  "title": "Blast radius",
+  "empty": "No symbols are declared in the changed files.",
+  "error": {
+    "title": "Couldn't load blast radius",
+    "body": "The impact map is unavailable right now."
+  },
+  "degraded": {
+    "flag_off": "Repo intelligence is turned off (REPO_INTEL_ENABLED=false), so callers can't be shown.",
+    "no_data": "This repository isn't indexed yet, so callers can't be shown.",
+    "index_failed": "The repository index failed to build — callers may be missing.",
+    "index_partial": "The repository index is incomplete — some callers may be missing.",
+    "repo_too_large": "The repository is too large to index fully — callers may be missing.",
+    "rebuild": "Rebuild index",
+    "rebuildStarted": "Re-index started. Reopen this PR in a minute."
+  },
   "stat": {
     "symbols": "symbols",
     "callers": "callers",
