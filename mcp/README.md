@@ -37,7 +37,7 @@ Rules (enforced by `npm run arch:check`, 6 dependency-cruiser rules, no baseline
 | `run_agent_on_pr` | `repo` (`owner/name`), `pr`, `agent` (id or name), `timeout_s?` (5–600, default 300), `severity_min?`, `detail?` (`concise`\|`full`) | findings + verdict when done; on timeout `{status:"running", run_id, hint}` |
 | `get_findings` | `run_id?`, `repo?`, `pr?`, `agent?`, `severity_min?`, `detail?` | one run, or all runs of a PR |
 | `get_conventions` | `repo`, `category?` | accepted conventions (capped, with `truncated`/`hint`) |
-| `get_blast_radius` | `repo`, `pr` | stable placeholder `{status:"not_implemented", hint}` |
+| `get_blast_radius` | `repo`, `pr` | the PR's blast radius (same body as `GET /pulls/:id/blast-radius`, plus `repo`/`pr`): changed symbols, callers as `file:line`, endpoints/crons, `stats`, `degraded`/`degraded_reason`; adds `hint` when degraded and `truncated_callers` when capped |
 
 Start budget (measured): `tools/list` + `instructions` = 3 140 chars (about 785 tokens) against a
 1 500-token budget.

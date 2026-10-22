@@ -1,5 +1,6 @@
 import type {
   Agent,
+  BlastRadiusResponse,
   ConventionCandidate,
   ConventionsList,
   FindingRecord,
@@ -120,6 +121,18 @@ export const conventionFixture = (o: Partial<ConventionCandidate> = {}): Convent
 
 const emptyConventions: ConventionsList = { scan: null, items: [] };
 
+export const blastFixture = (o: Partial<BlastRadiusResponse> = {}): BlastRadiusResponse => ({
+  pr_id: 'pr-1',
+  index_sha: 'abc',
+  changed_symbols: [],
+  downstream: [],
+  summary: '',
+  stats: { symbols: 0, callers: 0, endpoints: 0, crons: 0 },
+  degraded: false,
+  degraded_reason: null,
+  ...o,
+});
+
 /** In-memory DevDigestApi; every method is overridable. */
 export function fakeApi(overrides: Partial<DevDigestApi> = {}): DevDigestApi {
   return {
@@ -134,6 +147,7 @@ export function fakeApi(overrides: Partial<DevDigestApi> = {}): DevDigestApi {
     listRuns: async () => [],
     listReviews: async () => [],
     listConventions: async () => emptyConventions,
+    getBlastRadius: async () => blastFixture(),
     ...overrides,
   };
 }

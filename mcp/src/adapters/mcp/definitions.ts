@@ -64,7 +64,7 @@ export const TOOL_DEFS = {
     annotations: READ_ONLY,
   },
   get_blast_radius: {
-    description: 'Blast radius of a PR. Not implemented yet; returns a stable placeholder.',
+    description: 'Impact map of a PR: symbols declared in the changed files, their callers (file:line) and the endpoints/crons that depend on them. Reads the repo index; degraded=true means the index is missing or incomplete.',
     inputSchema: { repo, pr },
     annotations: READ_ONLY,
   },

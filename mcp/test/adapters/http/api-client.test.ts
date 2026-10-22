@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createApiClient } from '../../../src/adapters/http/api-client.js';
 import { ApiError } from '../../../src/adapters/http/errors.js';
-import { agentFixture, prFixture, repoFixture, runFixture } from '../../fakes.js';
+import { agentFixture, blastFixture, prFixture, repoFixture, runFixture } from '../../fakes.js';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -55,6 +55,21 @@ describe('api-client', () => {
       'http://api.test/pulls/pr-1/reviews',
       'http://api.test/repos/repo-1/conventions',
     ]);
+  });
+
+  it('GET /pulls/:id/blast-radius parses the body', async () => {
+    const f = vi.fn(async (..._a: [string, RequestInit]) => json(blastFixture({ summary: 'x' })));
+    const out = await client(f as unknown as typeof fetch).getBlastRadius('pr-1');
+    expect(out.summary).toBe('x');
+    expect(f.mock.calls[0]?.[0]).toBe('http://api.test/pulls/pr-1/blast-radius');
+  });
+
+  it('blast-radius malformed body -> ApiError http', async () => {
+    const e = (await client((async () => json({ nope: 1 })) as unknown as typeof fetch)
+      .getBlastRadius('pr-1')
+      .catch((x) => x)) as ApiError;
+    expect(e).toBeInstanceOf(ApiError);
+    expect(e.kind).toBe('http');
   });
 
   const failure = async (f: typeof fetch) =>

@@ -40,7 +40,7 @@ export function createServer(
     runReview: makeRunReview({ api, resolver, runs, sleep, now }),
     getFindings: makeGetFindings({ api, resolver, runs }),
     getConventions: makeGetConventions({ api, resolver }),
-    getBlastRadius: makeGetBlastRadius(),
+    getBlastRadius: makeGetBlastRadius({ api, resolver }),
   };
 
   const server = new McpServer({ name: 'devdigest', version: '0.1.0' }, { instructions: SERVER_INSTRUCTIONS });

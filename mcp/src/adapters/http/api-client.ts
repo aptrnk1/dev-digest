@@ -1,5 +1,6 @@
 import {
   Agent,
+  BlastRadiusResponse,
   ConventionsList,
   PrMeta,
   Repo,
@@ -87,5 +88,7 @@ export function createApiClient(o: {
     listReviews: (prId) => call('GET', `/pulls/${encodeURIComponent(prId)}/reviews`, z.array(ReviewRecord)),
     listConventions: (repoId) =>
       call('GET', `/repos/${encodeURIComponent(repoId)}/conventions`, ConventionsList),
+    getBlastRadius: (prId) =>
+      call('GET', `/pulls/${encodeURIComponent(prId)}/blast-radius`, BlastRadiusResponse),
   };
 }

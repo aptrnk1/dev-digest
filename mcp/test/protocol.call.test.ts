@@ -5,6 +5,7 @@ import { createServer } from '../src/compose.js';
 import type { RunStore } from '../src/app/ports.js';
 import {
   agentFixture,
+  blastFixture,
   conventionFixture,
   fakeApi,
   fakeClock,
@@ -185,17 +186,21 @@ describe('tools/call', () => {
     expect(result.conventions[0].category).toBe('naming');
   });
 
-  it('get_blast_radius returns not_implemented status', async () => {
-    const c = await connect();
+  it('get_blast_radius returns the route body plus repo and pr', async () => {
+    const c = await connect(
+      fakeApi({
+        listRepos: async () => [repoFixture({ full_name: 'acme/web' })],
+        listPulls: async () => [prFixture({ number: 1 })],
+        getBlastRadius: async () => blastFixture({ summary: 'impact' }),
+      }),
+    );
     const r = await c.callTool({
       name: 'get_blast_radius',
       arguments: { repo: 'acme/web', pr: 1 },
     });
     expect(r.isError).toBeFalsy();
     const result = expectValidJson((r.content as Array<{ text: string }>)[0]!.text);
-    expect(result).toHaveProperty('status');
-    expect(result.status).toBe('not_implemented');
-    expect(result).toHaveProperty('hint');
+    expect(result).toMatchObject({ repo: 'acme/web', pr: 1, summary: 'impact', degraded: false });
   });
 
   it('unknown repo returns isError:true', async () => {
