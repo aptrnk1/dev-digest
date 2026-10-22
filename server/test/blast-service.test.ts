@@ -15,7 +15,7 @@ const state: IndexState = {
   updatedAt: new Date(0),
 };
 
-function setup(opts: { pull?: PullPathsRead; blast?: () => Promise<BlastResult> } = {}) {
+function setup(opts: { pull?: PullPathsRead; blast?: () => Promise<BlastResult>; enabled?: boolean } = {}) {
   const calls: { blast: [string, string[]][]; state: string[] } = { blast: [], state: [] };
   const store: BlastStore = { loadPull: async () => opts.pull };
   const intel: BlastSource = {
@@ -30,7 +30,7 @@ function setup(opts: { pull?: PullPathsRead; blast?: () => Promise<BlastResult> 
       return state;
     },
   };
-  return { svc: new BlastService({ store, intel, repoIntelEnabled: true }), calls };
+  return { svc: new BlastService({ store, intel, repoIntelEnabled: opts.enabled ?? true }), calls };
 }
 
 describe('BlastService', () => {
@@ -71,5 +71,17 @@ describe('BlastService', () => {
     expect(out.degraded).toBe(true);
     expect(out.degraded_reason).toBe('no_data');
     expect(out.changed_symbols).toEqual([]);
+  });
+
+  it('flag off + intel rejects -> flag_off', async () => {
+    const { svc } = setup({
+      pull: { prId: 'p1', repoId: 'r1', paths: ['a.ts'] },
+      enabled: false,
+      blast: async () => {
+        throw new Error('boom');
+      },
+    });
+    const out = await svc.get('w1', 'p1');
+    expect(out.degraded_reason).toBe('flag_off');
   });
 });

@@ -1,7 +1,7 @@
 import type { BlastRadiusResponse } from '@devdigest/shared';
-import type { BlastResult, IndexState } from '../repo-intel/types.js';
+import type { BlastResult } from '../repo-intel/types.js';
 import { BlastDomainError } from './domain.js';
-import { toBlastRadiusResponse } from './helpers.js';
+import { toBlastRadiusResponse, type BlastIndexView } from './helpers.js';
 import type { BlastSource, BlastStore } from './ports.js';
 
 export interface BlastDeps {
@@ -11,6 +11,7 @@ export interface BlastDeps {
 }
 
 const EMPTY: BlastResult = { changedSymbols: [], callers: [], impactedEndpoints: [] };
+const FAILED_STATE: BlastIndexView = { status: 'failed', lastIndexedSha: '' };
 
 /** Read-only: maps one repo-intel blast query to the contract. No re-analysis, no LLM. */
 export class BlastService {
@@ -29,12 +30,11 @@ export class BlastService {
       return toBlastRadiusResponse({ prId: pull.prId, result, state, repoIntelEnabled });
     } catch {
       // repo-intel failing is not an API error: report an empty, degraded map
-      const state = { status: 'failed', lastIndexedSha: '' } as IndexState;
       return toBlastRadiusResponse({
         prId: pull.prId,
         result: { ...EMPTY, degraded: true, reason: 'no_data' },
-        state,
-        repoIntelEnabled: true,
+        state: FAILED_STATE,
+        repoIntelEnabled,
       });
     }
   }

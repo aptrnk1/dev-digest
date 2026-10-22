@@ -1,13 +1,16 @@
 import type { BlastDegradedReason, BlastRadiusResponse } from '@devdigest/shared';
 import type { BlastResult, IndexState } from '../repo-intel/types.js';
 
+/** The slice of the index state the mapping reads. */
+export type BlastIndexView = Pick<IndexState, 'status' | 'lastIndexedSha' | 'degraded' | 'degradedReason'>;
+
 /** Pure mapping of a repo-intel `BlastResult` to the API contract. No I/O. */
 
 const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 export function deriveDegraded(i: {
   repoIntelEnabled: boolean;
-  state: IndexState;
+  state: BlastIndexView;
   result: BlastResult;
 }): { degraded: boolean; reason: BlastDegradedReason | null } {
   if (!i.repoIntelEnabled) return { degraded: true, reason: 'flag_off' };
@@ -20,7 +23,7 @@ export function deriveDegraded(i: {
 export function toBlastRadiusResponse(i: {
   prId: string;
   result: BlastResult;
-  state: IndexState;
+  state: BlastIndexView;
   repoIntelEnabled: boolean;
 }): BlastRadiusResponse {
   const { result, state } = i;
