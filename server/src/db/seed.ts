@@ -16,6 +16,7 @@ import {
   type SeedSkill,
 } from './seed-skills.js';
 import { SEED_CONVENTIONS, SEED_CONVENTIONS_FILES_SAMPLED } from './seed-conventions.js';
+import { INDEXER_VERSION } from '../modules/repo-intel/constants.js';
 
 /** Default provider/model for the built-in reviewer agents. */
 const DEFAULT_PROVIDER = 'openrouter' as const;
@@ -455,6 +456,238 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       finishedAt: new Date(),
     });
     await db.insert(t.conventions).values(SEED_CONVENTIONS.map((c) => ({ workspaceId, repoId, ...c })));
+  }
+
+  // ---- Blast Radius: repo-intel index for PR #482 (only when the repo index is empty) ----
+  const [indexState] = await db
+    .select()
+    .from(t.repoIndexState)
+    .where(eq(t.repoIndexState.repoId, repoId))
+    .limit(1);
+  if (!indexState) {
+    const INDEXED_SHA = 'b1a5700000000000000000000000000000000482';
+
+    // Insert index state
+    await db.insert(t.repoIndexState).values({
+      repoId,
+      lastIndexedSha: INDEXED_SHA,
+      indexerVersion: INDEXER_VERSION,
+      status: 'full',
+      filesIndexed: 12,
+      filesSkipped: 0,
+    });
+
+    // Insert declared symbols in PR files
+    const prSymbols = await db
+      .insert(t.symbols)
+      .values([
+        {
+          repoId,
+          path: 'src/middleware/ratelimit.ts',
+          name: 'rateLimit',
+          kind: 'function',
+          line: 12,
+          endLine: 22,
+          exported: true,
+        },
+        {
+          repoId,
+          path: 'src/middleware/ratelimit.ts',
+          name: 'TokenBucket',
+          kind: 'interface',
+          line: 3,
+          endLine: 6,
+          exported: false,
+        },
+        {
+          repoId,
+          path: 'src/api/users.ts',
+          name: 'getUserList',
+          kind: 'function',
+          line: 45,
+          endLine: 52,
+          exported: true,
+        },
+      ])
+      .returning();
+
+    // Insert enclosing symbols in caller files
+    const callerSymbols = await db
+      .insert(t.symbols)
+      .values([
+        {
+          repoId,
+          path: 'src/api/public/index.ts',
+          name: 'registerPublicRoutes',
+          kind: 'function',
+          line: 1,
+          endLine: 60,
+          exported: true,
+        },
+        {
+          repoId,
+          path: 'src/api/public/items.ts',
+          name: 'listItems',
+          kind: 'function',
+          line: 20,
+          endLine: 50,
+          exported: true,
+        },
+        {
+          repoId,
+          path: 'src/api/public/health.ts',
+          name: 'healthRoute',
+          kind: 'function',
+          line: 5,
+          endLine: 20,
+          exported: true,
+        },
+        {
+          repoId,
+          path: 'src/server.ts',
+          name: 'buildServer',
+          kind: 'function',
+          line: 80,
+          endLine: 120,
+          exported: true,
+        },
+        {
+          repoId,
+          path: 'src/api/admin/index.ts',
+          name: 'registerAdminRoutes',
+          kind: 'function',
+          line: 1,
+          endLine: 40,
+          exported: true,
+        },
+      ])
+      .returning();
+
+    // Build a map of symbol name to id for references
+    const symbolMap = new Map<string, string>();
+    prSymbols.forEach((s) => {
+      symbolMap.set(s.name, s.id);
+    });
+
+    // Insert references with declFile set
+    const rateLimitSym = prSymbols.find((s) => s.name === 'rateLimit')!;
+    const getUserListSym = prSymbols.find((s) => s.name === 'getUserList')!;
+
+    await db.insert(t.references).values([
+      {
+        repoId,
+        fromPath: 'src/api/public/index.ts',
+        toSymbol: 'rateLimit',
+        line: 23,
+        declFile: 'src/middleware/ratelimit.ts',
+      },
+      {
+        repoId,
+        fromPath: 'src/api/public/items.ts',
+        toSymbol: 'rateLimit',
+        line: 31,
+        declFile: 'src/middleware/ratelimit.ts',
+      },
+      {
+        repoId,
+        fromPath: 'src/api/public/health.ts',
+        toSymbol: 'rateLimit',
+        line: 11,
+        declFile: 'src/middleware/ratelimit.ts',
+      },
+      {
+        repoId,
+        fromPath: 'src/server.ts',
+        toSymbol: 'rateLimit',
+        line: 88,
+        declFile: 'src/middleware/ratelimit.ts',
+      },
+      {
+        repoId,
+        fromPath: 'src/api/admin/index.ts',
+        toSymbol: 'getUserList',
+        line: 14,
+        declFile: 'src/api/users.ts',
+      },
+    ]);
+
+    // Insert file_rank for the 5 caller files (not PR files)
+    await db.insert(t.fileRank).values([
+      {
+        repoId,
+        filePath: 'src/api/public/index.ts',
+        pagerank: 0.15,
+        hotness: 0,
+        rank: 0.15,
+        percentile: 85,
+      },
+      {
+        repoId,
+        filePath: 'src/api/public/health.ts',
+        pagerank: 0.08,
+        hotness: 0,
+        rank: 0.08,
+        percentile: 60,
+      },
+      {
+        repoId,
+        filePath: 'src/server.ts',
+        pagerank: 0.2,
+        hotness: 0,
+        rank: 0.2,
+        percentile: 95,
+      },
+      {
+        repoId,
+        filePath: 'src/api/admin/index.ts',
+        pagerank: 0.12,
+        hotness: 0,
+        rank: 0.12,
+        percentile: 75,
+      },
+      {
+        repoId,
+        filePath: 'src/api/public/items.ts',
+        pagerank: 0.1,
+        hotness: 0,
+        rank: 0.1,
+        percentile: 65,
+      },
+    ]);
+
+    // Insert file_facts with endpoints and crons
+    await db.insert(t.fileFacts).values([
+      {
+        repoId,
+        filePath: 'src/api/public/index.ts',
+        endpoints: ['GET /api/public/items', 'POST /api/public/webhooks'],
+        crons: [],
+      },
+      {
+        repoId,
+        filePath: 'src/api/public/health.ts',
+        endpoints: ['GET /api/public/health'],
+        crons: [],
+      },
+      {
+        repoId,
+        filePath: 'src/api/admin/index.ts',
+        endpoints: ['GET /api/admin/users'],
+        crons: [],
+      },
+      {
+        repoId,
+        filePath: 'src/server.ts',
+        endpoints: [],
+        crons: ['job:reset_rate_buckets'],
+      },
+      {
+        repoId,
+        filePath: 'src/api/public/items.ts',
+        endpoints: [],
+        crons: [],
+      },
+    ]);
   }
 
   return { workspaceId, userId };
