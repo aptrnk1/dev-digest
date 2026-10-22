@@ -10,6 +10,11 @@
     { "cmd": ["wait", "--load", "networkidle"], "label": "PR detail data settles" },
     { "cmd": ["wait", "--text", "Add rate limiting to public API endpoints"], "label": "PR title renders on the detail page" },
     { "cmd": ["wait", "--text", "Intent"], "label": "IntentCard section header renders" },
-    { "cmd": ["wait", "--text", "Protect the public API from abuse by rate limiting unauthenticated clients."], "label": "seeded intent quote renders" }
+    { "cmd": ["wait", "--text", "Protect the public API from abuse by rate limiting unauthenticated clients."], "label": "seeded intent quote renders" },
+    { "cmd": ["wait", "--text", "Blast radius"], "label": "BlastRadiusCard section header renders" },
+    { "cmd": ["wait", "--text", "rateLimit"], "label": "seeded changed symbol with callers renders" },
+    { "cmd": ["wait", "--text", "src/api/public/index.ts:23"], "label": "caller file:line renders" },
+    { "cmd": ["wait", "--text", "GET /api/public/items"], "label": "endpoint chip renders under the symbol" },
+    { "cmd": ["wait", "--text", "job:reset_rate_buckets"], "label": "cron chip renders under the symbol" }
   ]
 }
