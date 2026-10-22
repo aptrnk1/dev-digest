@@ -21,13 +21,22 @@
     "crons": "cron/jobs"
   },
   "view": {
-    "tree": "tree",
-    "graph": "graph"
+    "tree": "Tree",
+    "graph": "Graph"
   },
   "callerCount": "{count} callers",
   "noDownstream": "{count} changed symbol(s), no downstream callers found.",
   "graph": {
     "empty": "No downstream callers to graph.",
-    "ariaLabel": "Blast radius graph"
+    "ariaLabel": "Blast radius graph",
+    "legend": {
+      "symbol": "changed symbol",
+      "callers": "callers",
+      "affected": "endpoints / crons affected"
+    },
+    "more": "+{count} more callers not shown"
+  },
+  "tree": {
+    "toggle": "Show or hide callers of {symbol}"
   }
 }
