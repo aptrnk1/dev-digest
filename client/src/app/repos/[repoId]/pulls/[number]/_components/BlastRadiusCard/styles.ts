@@ -1,0 +1,73 @@
+import type { CSSProperties } from "react";
+
+const chip = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
+  padding: "2px 8px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontFamily: "var(--font-mono, monospace)",
+} satisfies CSSProperties;
+
+export const s = {
+  card: {
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    background: "var(--bg-elevated)",
+    padding: 18,
+    display: "flex",
+    flexDirection: "column",
+    gap: 14,
+  } satisfies CSSProperties,
+  banner: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 10,
+    padding: "8px 12px",
+    borderRadius: 6,
+    fontSize: 13,
+    color: "var(--warn)",
+    background: "var(--warn-bg)",
+  } satisfies CSSProperties,
+  stats: { display: "flex", flexWrap: "wrap", gap: 24 } satisfies CSSProperties,
+  stat: { display: "flex", flexDirection: "column", gap: 2 } satisfies CSSProperties,
+  statValue: { fontSize: 20, fontWeight: 600, color: "var(--text-primary)" } satisfies CSSProperties,
+  statLabel: {
+    fontSize: 12,
+    color: "var(--text-muted)",
+    textTransform: "uppercase",
+    letterSpacing: "0.07em",
+  } satisfies CSSProperties,
+  muted: { fontSize: 13, color: "var(--text-muted)" } satisfies CSSProperties,
+  group: { display: "flex", flexDirection: "column", gap: 6 } satisfies CSSProperties,
+  symbolRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    fontSize: 14,
+    color: "var(--text-primary)",
+  } satisfies CSSProperties,
+  callerRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    paddingLeft: 12,
+    fontSize: 13,
+    color: "var(--text-muted)",
+  } satisfies CSSProperties,
+  link: { color: "var(--accent)", textDecoration: "none" } satisfies CSSProperties,
+  chips: { display: "flex", flexWrap: "wrap", gap: 8, paddingLeft: 12 } satisfies CSSProperties,
+  endpointChip: {
+    ...chip,
+    color: "var(--blue, #3b82f6)",
+    background: "var(--blue-bg, rgba(59,130,246,0.12))",
+  } satisfies CSSProperties,
+  cronChip: {
+    ...chip,
+    color: "var(--orange, #f97316)",
+    background: "var(--orange-bg, rgba(249,115,22,0.12))",
+  } satisfies CSSProperties,
+} as const;
