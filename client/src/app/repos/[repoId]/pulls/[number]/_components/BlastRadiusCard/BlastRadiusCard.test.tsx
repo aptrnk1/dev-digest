@@ -165,4 +165,54 @@ describe("BlastRadiusCard", () => {
     fireEvent.click(screen.getByRole("button", { name: /Retry/ }));
     expect(refetch).toHaveBeenCalled();
   });
+
+  it("tree is the default view with expandable symbol rows", () => {
+    ui(DATA);
+    expect(screen.getByRole("button", { name: "Tree" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Graph" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("img")).toBeNull();
+    const row = screen.getByRole("button", { name: "Show or hide callers of charge" });
+    expect(row).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("collapsing a symbol hides only its callers and chips", () => {
+    ui(DATA);
+    fireEvent.click(screen.getByRole("button", { name: "Show or hide callers of charge" }));
+    expect(screen.getByRole("button", { name: "Show or hide callers of charge" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByText("src/checkout.ts:23")).toBeNull();
+    expect(screen.queryByText("POST /checkout")).toBeNull();
+    expect(screen.getByText("charge")).toBeInTheDocument();
+    expect(screen.getByText("src/jobs.ts:9")).toBeInTheDocument();
+    expect(screen.getByText("0 * * * *")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show or hide callers of charge" }));
+    expect(screen.getByText("src/checkout.ts:23")).toBeInTheDocument();
+  });
+
+  it("Graph button swaps the tree for the graph and back", () => {
+    ui(DATA);
+    fireEvent.click(screen.getByRole("button", { name: "Graph" }));
+    expect(screen.getByRole("button", { name: "Graph" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("img", { name: "Blast radius graph" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show or hide callers of charge" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Tree" }));
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.getByText("src/checkout.ts:23")).toBeInTheDocument();
+  });
+
+  it("hides the toggle when there is no downstream", () => {
+    ui({ ...DATA, downstream: [], stats: { symbols: 2, callers: 0, endpoints: 0, crons: 0 } });
+    expect(screen.queryByRole("button", { name: "Graph" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tree" })).toBeNull();
+  });
+
+  it("keeps the banner and stats in the graph view", () => {
+    ui({ ...DATA, degraded: true, degraded_reason: "index_partial" });
+    fireEvent.click(screen.getByRole("button", { name: "Graph" }));
+    expect(screen.getByRole("status")).toHaveTextContent("The repository index is incomplete");
+    expect(screen.getByText("symbols")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Blast radius graph" })).toBeInTheDocument();
+  });
 });

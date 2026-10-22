@@ -18,3 +18,7 @@ export const REBUILD_HELPS = {
   repo_too_large: false,
   no_data: true,
 } satisfies Record<BlastDegradedReason, boolean>;
+
+/* Card views; the value doubles as the `blast.view.*` i18n key suffix. */
+export const VIEWS = ["tree", "graph"] as const;
+export type BlastView = (typeof VIEWS)[number];

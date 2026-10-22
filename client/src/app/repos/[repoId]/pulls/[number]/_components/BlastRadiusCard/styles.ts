@@ -10,6 +10,15 @@ const chip = {
   fontFamily: "var(--font-mono, monospace)",
 } satisfies CSSProperties;
 
+const segment = {
+  padding: "4px 12px",
+  fontSize: 12,
+  border: "none",
+  background: "transparent",
+  color: "var(--text-muted)",
+  cursor: "pointer",
+} satisfies CSSProperties;
+
 export const s = {
   card: {
     border: "1px solid var(--border)",
@@ -30,6 +39,37 @@ export const s = {
     fontSize: 13,
     color: "var(--warn)",
     background: "var(--warn-bg)",
+  } satisfies CSSProperties,
+  statsRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  } satisfies CSSProperties,
+  segmented: {
+    display: "inline-flex",
+    border: "1px solid var(--border)",
+    borderRadius: 6,
+    overflow: "hidden",
+  } satisfies CSSProperties,
+  segment: { ...segment } satisfies CSSProperties,
+  segmentActive: {
+    ...segment,
+    color: "var(--text-primary)",
+    background: "var(--bg-hover, rgba(127,127,127,0.15))",
+    fontWeight: 600,
+  } satisfies CSSProperties,
+  symbolToggle: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: 0,
+    border: "none",
+    background: "none",
+    cursor: "pointer",
+    fontSize: 14,
+    color: "var(--text-primary)",
   } satisfies CSSProperties,
   stats: { display: "flex", flexWrap: "wrap", gap: 24 } satisfies CSSProperties,
   stat: { display: "flex", flexDirection: "column", gap: 2 } satisfies CSSProperties,

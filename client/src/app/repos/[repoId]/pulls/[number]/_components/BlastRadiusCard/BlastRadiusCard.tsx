@@ -5,11 +5,12 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Button, ErrorState, Icon, SectionLabel, Skeleton } from "@devdigest/ui";
+import { Button, ErrorState, SectionLabel, Skeleton } from "@devdigest/ui";
 import { useBlastRadius } from "@/lib/hooks/blast";
 import { useResyncRepoIntel } from "@/lib/hooks/repo-intel";
-import { githubBlobUrl } from "@/lib/github-urls";
-import { DEGRADED_MESSAGE_KEY, REBUILD_HELPS } from "./constants";
+import { BlastGraph } from "./BlastGraph";
+import { BlastTree } from "./BlastTree";
+import { DEGRADED_MESSAGE_KEY, REBUILD_HELPS, VIEWS, type BlastView } from "./constants";
 import { s } from "./styles";
 
 interface BlastRadiusCardProps {
@@ -24,6 +25,7 @@ export function BlastRadiusCard({ prId, repoId, repoFullName, headSha }: BlastRa
   const { data, isLoading, isError, refetch } = useBlastRadius(prId);
   const resync = useResyncRepoIntel(repoId);
   const [started, setStarted] = React.useState(false);
+  const [view, setView] = React.useState<BlastView>("tree");
 
   if (isLoading) {
     return (
@@ -77,13 +79,30 @@ export function BlastRadiusCard({ prId, repoId, repoFullName, headSha }: BlastRa
           </div>
         )}
 
-        <div style={s.stats}>
-          {stats.map((st) => (
-            <div key={st.key} style={s.stat}>
-              <span style={s.statValue}>{st.value}</span>
-              <span style={s.statLabel}>{st.label}</span>
+        <div style={s.statsRow}>
+          <div style={s.stats}>
+            {stats.map((st) => (
+              <div key={st.key} style={s.stat}>
+                <span style={s.statValue}>{st.value}</span>
+                <span style={s.statLabel}>{st.label}</span>
+              </div>
+            ))}
+          </div>
+          {downstream.length > 0 && (
+            <div style={s.segmented} role="group">
+              {VIEWS.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={view === v}
+                  style={view === v ? s.segmentActive : s.segment}
+                  onClick={() => setView(v)}
+                >
+                  {t(`view.${v}`)}
+                </button>
+              ))}
             </div>
-          ))}
+          )}
         </div>
 
         {data.changed_symbols.length === 0 && !data.degraded && <div style={s.muted}>{t("empty")}</div>}
@@ -92,52 +111,12 @@ export function BlastRadiusCard({ prId, repoId, repoFullName, headSha }: BlastRa
           <div style={s.muted}>{t("noDownstream", { count: data.changed_symbols.length })}</div>
         )}
 
-        {downstream.map((d) => (
-          <div key={d.symbol} style={s.group}>
-            <div style={s.symbolRow}>
-              <span className="mono">{d.symbol}</span>
-              <span style={s.muted}>{t("callerCount", { count: d.callers.length })}</span>
-            </div>
-            {d.callers.map((c) => {
-              const label = `${c.file}:${c.line}`;
-              return (
-                <div key={label} style={s.callerRow}>
-                  <Icon.CornerDownRight size={12} aria-hidden />
-                  {repoFullName && sha ? (
-                    <a
-                      className="mono"
-                      style={s.link}
-                      href={githubBlobUrl(repoFullName, sha, c.file, c.line)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {label}
-                    </a>
-                  ) : (
-                    <span className="mono">{label}</span>
-                  )}
-                  <span>{c.name}</span>
-                </div>
-              );
-            })}
-            {(d.endpoints_affected.length > 0 || d.crons_affected.length > 0) && (
-              <div style={s.chips}>
-                {d.endpoints_affected.map((e) => (
-                  <span key={`e-${e}`} style={s.endpointChip}>
-                    <Icon.Globe size={12} aria-hidden />
-                    {e}
-                  </span>
-                ))}
-                {d.crons_affected.map((c) => (
-                  <span key={`c-${c}`} style={s.cronChip}>
-                    <Icon.Clock size={12} aria-hidden />
-                    {c}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+        {downstream.length > 0 &&
+          (view === "tree" ? (
+            <BlastTree downstream={downstream} repoFullName={repoFullName} sha={sha} />
+          ) : (
+            <BlastGraph downstream={downstream} repoFullName={repoFullName} sha={sha} />
+          ))}
       </div>
     </section>
   );
