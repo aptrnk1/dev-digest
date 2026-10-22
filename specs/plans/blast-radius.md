@@ -344,10 +344,10 @@ Goal: every check below still runs; tokens are saved by not repeating work.
 ## Progress
 | Task | Status | Notes |
 |------|--------|-------|
-| T1 | todo | |
-| T2 | todo | |
-| T3 | todo | |
-| T4 | todo | |
-| T5 | todo | |
+| T1 | done | contract, 1383d84 |
+| T2 | done | merged; non-uuid → 422 (app-wide validation handler), test asserts 4xx |
+| T3 | done | merged; it suites 24/24 |
+| T4 | done | merged; client 136/136 |
+| T5 | done | merged; mcp 115/115 |
 | T6 | todo | |
 | T7 | todo | inline; skip-verify on macOS 12 |
