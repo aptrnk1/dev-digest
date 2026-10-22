@@ -19,3 +19,7 @@ exit 0
       Tests  115 passed (115)
 exit 0
 ## e2e: skipped — macOS 12 host (e2e/INSIGHTS 2026-10-18)
+
+## after fix A1 (b4b50ae)
+- `cd server && pnpm typecheck && pnpm exec vitest run --exclude '**/*.it.test.ts' && pnpm arch:check` · exit 0 · 314 passed, no new violations
+- `cd server && pnpm exec vitest run blast.it.test.ts` (sandbox off) · exit 0 · 4 passed, 0 skipped
