@@ -349,5 +349,5 @@ Goal: every check below still runs; tokens are saved by not repeating work.
 | T3 | done | merged; it suites 24/24 |
 | T4 | done | merged; client 136/136 |
 | T5 | done | merged; mcp 115/115 |
-| T6 | todo | |
-| T7 | todo | inline; skip-verify on macOS 12 |
+| T6 | done | blast.it 4/4, 0 skipped |
+| T7 | done | inline, 68c4f65; skip-verify on macOS 12 |
