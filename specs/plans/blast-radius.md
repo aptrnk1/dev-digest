@@ -4,7 +4,7 @@ Spec: none — inline requirements R1–R9 below (orchestrator brief, 2026-10-23
 
 ## Goal
 On a PR's **Overview** tab a reviewer sees what else the diff can touch: changed symbols, their callers as GitHub `file:line` links, and the endpoints/crons that depend on each symbol. Claude Code gets the same map from `get_blast_radius`.
-Not doing (P3): collapsible tree, Tree/Graph toggle, graph view, "Prior PRs touching these files". Also not doing: re-analysis or any LLM call, recomputing repo-intel limits (`MAX_CALLERS_PER_SYMBOL`, `BFS_DEPTH`), polling for resync completion, any new table or migration.
+Not doing (P3): "Prior PRs touching these files". (Collapsible tree, Tree/Graph toggle and graph view were pulled in by the user on 2026-10-23 — Wave 3, R10–R12.) Also not doing: re-analysis or any LLM call, recomputing repo-intel limits (`MAX_CALLERS_PER_SYMBOL`, `BFS_DEPTH`), polling for resync completion, any new table or migration.
 
 ## Requirements (inline)
 - **R1** The Overview tab shows a "Blast radius" block for the PR (below Intent, above Description).
@@ -15,7 +15,10 @@ Not doing (P3): collapsible tree, Tree/Graph toggle, graph view, "Prior PRs touc
 - **R6** Server: a new `blast` module and route return the blast contract, mapped from one `repoIntel.getBlastRadius` call. No re-analysis, no LLM.
 - **R7** Client: the data is fetched by a hook in `client/src/lib/hooks/`, following the same pattern as the existing hooks.
 - **R8** MCP: `get_blast_radius` returns the same data as the browser (it calls the same route).
-- **R9** P3 items are excluded (see Not doing).
+- **R9** "Prior PRs touching these files" stays excluded (see Not doing).
+- **R10** (Wave 3) Each changed symbol in the list is collapsible: its callers and chips hide/show via the symbol row; all expanded by default.
+- **R11** (Wave 3) A Tree / Graph toggle in the stats row switches between the list (Tree, default) and a graph view.
+- **R12** (Wave 3) Graph view: changed symbols → callers → endpoints/crons as an SVG node-link diagram with a legend; client-only, no new dependency, no contract change.
 
 ## Architecture
 New module `server/src/modules/blast/`: routes → compose → service → ports → repository, plus `helpers.ts` (pure mapper) and `domain.ts` (error only, following the intent/smart-diff precedent). The service has three steps:
@@ -277,6 +280,42 @@ Verify: `cd e2e && npm run e2e:hermetic` (skip-verify on this macOS 12 host — 
 
 ---
 
+## Wave 3 — P3 views (user request 2026-10-23; client only, sequential)
+
+Decisions:
+- No contract/server change. The contract has endpoints/crons per *symbol*, not per caller, so the graph draws solid `symbol → caller` edges and **dashed** `symbol → endpoint/cron` edges (they are affected *via* that symbol's callers). It never invents caller→endpoint edges.
+- No new dependency: hand-rolled SVG (`viewBox`, width 100%, scales down on phone width). Layout is a pure function so it is unit-testable without a DOM.
+- The `Chip` primitive is a toggle button (`aria-pressed`) — fine for the Tree/Graph segmented toggle, but the plan keeps styled buttons in `styles.ts` for visual parity with the mock; either is acceptable.
+- Existing `blast.json` keys `view.tree`, `view.graph`, `graph.empty`, `graph.ariaLabel` are reused (values may be capitalised: "Tree", "Graph"). New keys: `graph.legend.symbol` "changed symbol", `graph.legend.callers` "callers", `graph.legend.affected` "endpoints / crons affected", `graph.more` "+{count} more callers not shown", `tree.toggle` "Show or hide callers of {symbol}".
+
+### T8 [FE] `BlastGraph` SVG view
+Owns: `client/src/app/repos/[repoId]/pulls/[number]/_components/BlastRadiusCard/BlastGraph/{BlastGraph.tsx,BlastGraph.test.tsx,layout.ts,layout.test.ts,styles.ts,index.ts}`, `client/messages/en/blast.json`
+Depends on: T4
+Skills: react-best-practices, react-testing-library
+Route: agent
+Interfaces: provides `BlastGraph({ downstream, repoFullName, sha }: { downstream: BlastRadiusResponse['downstream']; repoFullName: string | null; sha: string | null })` and pure `layoutBlastGraph(downstream, opts?) => { width, height, nodes: GraphNode[], edges: GraphEdge[], hiddenCallers: number }` with `GraphNode = { id, kind: 'symbol'|'caller'|'endpoint'|'cron', label, x, y, w, h, file?, line? }`, `GraphEdge = { from, to, dashed: boolean }`.
+Steps:
+1. Tests: `layout.test.ts` — three columns (symbol x < caller x < affected x); callers deduped by `name+file` across symbols with one edge per symbol; endpoint/cron nodes deduped; dashed edges only symbol→endpoint/cron; caps at `MAX_GRAPH_CALLERS` (30) with `hiddenCallers`; empty downstream → no nodes. `BlastGraph.test.tsx` — renders an `svg` with `role="img"` + `aria-label` from `graph.ariaLabel`; node labels visible (long labels truncated with `…`, full text in `<title>`); caller nodes link to `githubBlobUrl(...)` with `target=_blank rel="noopener noreferrer"` when repo+sha exist, plain otherwise; legend text; `graph.more` when callers are capped; `graph.empty` when downstream is empty.
+2. `layout.ts` (pure, constants for column x, node size, gaps), `BlastGraph.tsx` (curved `path` edges, endpoint nodes blue border, cron nodes orange, symbol nodes accent, uses CSS vars from the theme), `styles.ts`, barrel; new `blast.json` keys.
+Acceptance: R12.
+Verify: `cd client && pnpm typecheck && pnpm exec vitest run src/app/repos`
+Escalate if: the layout needs per-caller endpoints (contract change).
+
+### T9 [FE] Collapsible tree + Tree/Graph toggle
+Owns: `client/src/app/repos/[repoId]/pulls/[number]/_components/BlastRadiusCard/{BlastRadiusCard.tsx,BlastRadiusCard.test.tsx,BlastTree.tsx,constants.ts,styles.ts}`, `e2e/specs/02-repo-pulls-detail.flow.json`
+Depends on: T8
+Skills: react-best-practices, react-testing-library
+Route: agent
+Interfaces: consumes `BlastGraph`; provides `BlastTree({ downstream, repoFullName, sha })` (the current list, extracted).
+Steps:
+1. Tests (extend `BlastRadiusCard.test.tsx`, existing cases stay green): Tree is the default; symbol row is a `button` with `aria-expanded="true"` and `aria-label` from `tree.toggle`; clicking it hides that symbol's callers and chips only; toggle buttons `view.tree`/`view.graph` with `aria-pressed`; clicking Graph renders the graph (`role="img"`) and hides the tree; the toggle is hidden when `downstream` is empty; degraded banner and stats still render in both views.
+2. Extract the list into `BlastTree.tsx` with per-symbol collapse state (`Set` of collapsed symbols, chevron icon); add the segmented toggle to the right of the stats row (`styles.ts`); `BlastRadiusCard` holds `view` state and renders `BlastTree` or `BlastGraph`.
+3. e2e flow: after the existing blast steps add `find text Graph click` + `wait` for the graph aria-label, then switch back to Tree (keep `file:line` assertions on the Tree view).
+Acceptance: R10, R11 (+ R1–R5 unchanged).
+Verify: `cd client && pnpm typecheck && pnpm test` · e2e skip-verify (macOS 12)
+
+---
+
 ## Execution (for the orchestrator)
 Goal: every check below still runs; tokens are saved by not repeating work.
 
@@ -351,3 +390,5 @@ Goal: every check below still runs; tokens are saved by not repeating work.
 | T5 | done | merged; mcp 115/115 |
 | T6 | done | blast.it 4/4, 0 skipped |
 | T7 | done | inline, 68c4f65; skip-verify on macOS 12 |
+| T8 | todo | |
+| T9 | todo | |
