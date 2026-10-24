@@ -336,11 +336,11 @@ go here:
 | T4 | done | inline by orchestrator; added spec: label assert |
 | T5 | done | RunAttachments/MergedDoc live in types.ts; extra consts INCLUDED_DOT_DIR, DOC_EXTENSIONS |
 | T6 | done | some context.json keys (panel.title/skillTitle, grip) are implementer wording — no AC text |
-| T7 | todo | |
-| T8 | todo | |
-| T9 | todo | |
-| T10 | todo | |
-| T11 | todo | |
+| T7 | done | merged 15e2689; PUT on uncloned → 409 (consistent with AC6); /context/file has no updated_at (DocSource.read has no mtime) — check in Phase 5 |
+| T8 | done | merged e0f5dce; arch fail in worktree = symlinked node_modules artifact, PASS in main checkout; missing = null/throw/>1MB |
+| T9 | done | merged 06af8fc; no red run for ContextView.test; skeleton via data-testid (no loading string) |
+| T10 | done | merged c987f2b; panel needs ToastProvider; header+Filter share top row; Drawer close label hardcoded in kit |
+| T11 | done | haiku, main checkout; no red-evidence reported |
 | T12 | todo | |
 | T13 | todo | |
 | T14 | todo | |
