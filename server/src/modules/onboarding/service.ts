@@ -132,8 +132,11 @@ export class OnboardingService implements OnboardingFacade {
   private async execute(run: Run): Promise<void> {
     const repoId = run.repo.id;
     try {
-      const tour = await this.withDeadline(run, () => this.build(run));
-      const ok = await this.deps.store.complete(repoId, run.runId, tour, this.now(), STALE_RUN_MS);
+      const built = await this.withDeadline(run, () => this.build(run));
+      // One completion timestamp: the tour's generated_at equals the job's finished_at.
+      const completedAt = this.now();
+      const tour = OnboardingTour.parse({ ...built, generated_at: completedAt.toISOString() });
+      const ok = await this.deps.store.complete(repoId, run.runId, tour, completedAt, STALE_RUN_MS);
       if (!ok) this.deps.logger?.info({ repoId, runId: run.runId }, 'onboarding: result discarded (run replaced or stale)');
     } catch (err) {
       const message = classifyGenerationError(err);
@@ -167,7 +170,8 @@ export class OnboardingService implements OnboardingFacade {
     });
   }
 
-  private async build(run: Run): Promise<OnboardingTour> {
+  /** Everything but `generated_at`, which `execute` stamps at completion. */
+  private async build(run: Run): Promise<Omit<OnboardingTour, 'generated_at'>> {
     const { repo, clonePath } = run;
     // Snapshot at start: HEAD and index state describe what the model saw.
     const commitSha = await this.deps.head.currentHead({ owner: repo.owner, name: repo.name });
@@ -184,13 +188,12 @@ export class OnboardingService implements OnboardingFacade {
       exists: (p) => this.deps.files.isRegularFileInside(clonePath, p),
       contentPaths: contentPaths(fit.input),
     });
-    return OnboardingTour.parse({
+    return {
       commit_sha: commitSha,
-      generated_at: this.now().toISOString(),
       files_indexed: idx.filesIndexed,
       index_status: idx.status,
       ...body,
-    });
+    };
   }
 
   /** At most MAX_HTTP_REQUESTS provider requests; the only retry loop (providers get maxRetries 0). */

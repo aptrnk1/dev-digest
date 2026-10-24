@@ -85,6 +85,29 @@ describe('FsRepoFiles.readCapped', () => {
   });
 });
 
+describe('FsRepoFiles.readCapped symlinks and bounded read (AC57)', () => {
+  const o = { maxLines: 10, maxChars: 100 };
+  it('never reads through a file symlink, even one pointing inside the clone', async () => {
+    await put('.env', 'SECRET=1');
+    await mkdir(join(root, 'config'), { recursive: true });
+    await symlink('../.env', join(root, 'config/settings.txt'));
+    expect(await fs.readCapped(root, 'config/settings.txt', o)).toBeNull();
+    expect(await fs.readCapped(root, '.env', o)).toBe('SECRET=1');
+  });
+  it('never reads through a symlinked directory component', async () => {
+    await put('real/a.txt', 'hi');
+    await symlink('real', join(root, 'alias'));
+    expect(await fs.readCapped(root, 'alias/a.txt', o)).toBeNull();
+    expect(await fs.readCapped(root, 'real/a.txt', o)).toBe('hi');
+  });
+  it('caps a large multibyte file and keeps small files unchanged', async () => {
+    await put('big.txt', 'é'.repeat(200_000));
+    expect(await fs.readCapped(root, 'big.txt', { maxLines: 5, maxChars: 50 })).toBe('é'.repeat(50));
+    await put('small.txt', 'a\nb');
+    expect(await fs.readCapped(root, 'small.txt', o)).toBe('a\nb');
+  });
+});
+
 describe('FsRepoFiles.isRegularFileInside (AC62)', () => {
   it('rejects symlinks out of the clone and non-files', async () => {
     await put('ok.ts');

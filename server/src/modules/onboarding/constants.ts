@@ -44,36 +44,19 @@ export const TREE_EXCLUDED_DIRS = [
   '.git',
 ] as const;
 
-/** Manifests read from the clone root, by exact name. */
+/** Manifests read from the clone root, by exact name — exactly the AC56 pt.3 list. */
 export const MANIFEST_FILES = [
   'package.json',
-  'pyproject.toml',
-  'requirements.txt',
-  'Cargo.toml',
-  'go.mod',
-  'pom.xml',
-  'build.gradle',
-  'build.gradle.kts',
-  'Gemfile',
-  'composer.json',
-  'Makefile',
-  'Dockerfile',
   'docker-compose.yml',
   'docker-compose.yaml',
+  'compose.yml',
+  'Makefile',
+  'Dockerfile',
+  '.env.example',
 ] as const;
 
-/** Only the NAMES of these are given to the model, never their content. */
-export const LOCK_FILES = [
-  'pnpm-lock.yaml',
-  'package-lock.json',
-  'yarn.lock',
-  'bun.lockb',
-  'Cargo.lock',
-  'poetry.lock',
-  'Gemfile.lock',
-  'go.sum',
-  'composer.lock',
-] as const;
+/** Only the NAMES of these are given to the model, never their content — exactly AC56 pt.4. */
+export const LOCK_FILES = ['pnpm-lock.yaml', 'package-lock.json', 'yarn.lock'] as const;
 
 /** The only texts that may reach `job.error` (AC79). */
 export const ERROR_MESSAGES = {

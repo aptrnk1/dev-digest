@@ -84,7 +84,19 @@ function GenerateError({ error }: { error: unknown }) {
   return <Banner>{t("startFailed", { message })}</Banner>;
 }
 
-export function TourView({ repoId, repo }: { repoId: string; repo: Repo | null }) {
+export type ReposStatus = "loading" | "error" | "ready";
+
+export function TourView({
+  repoId,
+  repo,
+  reposStatus = "ready",
+  onRetryRepos,
+}: {
+  repoId: string;
+  repo: Repo | null;
+  reposStatus?: ReposStatus;
+  onRetryRepos?: () => void;
+}) {
   const t = useTranslations("onboarding");
   const router = useRouter();
   const copy = useClipboard();
@@ -121,6 +133,18 @@ export function TourView({ repoId, repo }: { repoId: string; repo: Repo | null }
   };
   const start = () => generate.mutate();
 
+  if (!repo && reposStatus === "loading") {
+    return (
+      <div style={s.page} aria-busy="true">
+        <Skeleton height={40} />
+        <Skeleton height={200} />
+        <Skeleton height={160} />
+      </div>
+    );
+  }
+  if (!repo && reposStatus === "error") {
+    return <ErrorState title={t("states.loadError.title")} onRetry={onRetryRepos} />;
+  }
   if (!repo) {
     return <EmptyState icon="GitBranch" title={t("states.noRepo")} cta={t("states.addRepo")} onCta={() => router.push("/onboarding")} />;
   }

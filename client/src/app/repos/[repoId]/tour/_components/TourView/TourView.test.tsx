@@ -65,11 +65,11 @@ const job = (status: "running" | "done" | "failed", error: string | null = null)
   finished_at: status === "running" ? null : new Date().toISOString(),
 });
 
-function renderView(repo: Repo | null = REPO) {
+function renderView(repo: Repo | null = REPO, extra: Record<string, unknown> = {}) {
   return render(
     <NextIntlClientProvider locale="en" messages={{ onboarding }}>
       <ToastProvider>
-        <TourView repoId="r1" repo={repo} />
+        <TourView repoId="r1" repo={repo} {...extra} />
       </ToastProvider>
     </NextIntlClientProvider>,
   );
@@ -189,6 +189,21 @@ describe("TourView states", () => {
     expect(screen.getByText(onboarding.states.loadError.title)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(refetch).toHaveBeenCalled();
+  });
+
+  it("shows a loading state, not the empty state, while repos load", () => {
+    const { container } = renderView(null, { reposStatus: "loading" });
+    expect(container.querySelector('[aria-busy="true"]')).toBeInTheDocument();
+    expect(screen.queryByText(onboarding.states.noRepo)).not.toBeInTheDocument();
+  });
+
+  it("shows an error with Retry when the repos fetch fails", () => {
+    const retry = vi.fn();
+    renderView(null, { reposStatus: "error", onRetryRepos: retry });
+    expect(screen.getByText(onboarding.states.loadError.title)).toBeInTheDocument();
+    expect(screen.queryByText(onboarding.states.noRepo)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalled();
   });
 
   it("prompts to add a repository when there is none", () => {

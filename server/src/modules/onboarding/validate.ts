@@ -31,9 +31,9 @@ export function truncate(text: string, max: number): string {
   return text.length <= max ? text : text.slice(0, Math.max(0, max - 1)) + '…';
 }
 
-/** Mermaid-breaking characters become `_`. */
+/** Whitelist (AC66): anything outside A-Z a-z 0-9 space . _ / * @ : - becomes `_`. */
 export function sanitizeLabel(label: string): string {
-  const s = truncate(label.replace(/["\][<>`\\|{}\n\r]/g, '_').trim(), MAX_NODE_LABEL);
+  const s = truncate(label.replace(/[^A-Za-z0-9 ._/*@:-]/g, '_').trim(), MAX_NODE_LABEL);
   return s === '' ? '_' : s;
 }
 
@@ -119,16 +119,16 @@ export async function sanitizeDraft(
     })),
   );
   const first_tasks = dedupe(
-    withFiles.filter((x) => x.files.length > 0),
-    (x) => x.t.title,
-  )
-    .slice(0, MAX_FIRST_TASKS)
-    .map(({ t, files }) => ({
-      title: truncate(t.title, MAX_TASK_TITLE),
-      description: truncate(t.description, MAX_DESCRIPTION),
-      size: t.size,
-      files,
-    }));
+    withFiles
+      .filter((x) => x.files.length > 0)
+      .map(({ t, files }) => ({
+        title: truncate(t.title, MAX_TASK_TITLE),
+        description: truncate(t.description, MAX_DESCRIPTION),
+        size: t.size,
+        files,
+      })),
+    (x) => x.title,
+  ).slice(0, MAX_FIRST_TASKS);
 
   return {
     architecture: { summary: truncate(draft.summary, MAX_SUMMARY), diagram: { nodes, edges } },

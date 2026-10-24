@@ -46,9 +46,8 @@ export function buildMessages(input: ModelInput, systemPrompt: string): ChatMess
     );
   }
   for (const f of input.files) {
-    parts.push(
-      `## ${f.kind}: ${f.path.replace(/[\n\r]/g, '_')}\n${wrapUntrusted(label(f.kind, f.path), f.content)}`,
-    );
+    // The path lives only inside the <untrusted> block (its source label) — nothing repo-controlled outside.
+    parts.push(wrapUntrusted(label(f.kind, f.path), f.content));
   }
   if (input.chains.length > 0) {
     const text = input.chains.map((c) => c.join(' -> ')).join('\n');

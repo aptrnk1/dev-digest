@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { AppShell } from "@/components/app-shell";
 import { RepoNotFound } from "@/components/repo-not-found";
+import { useRepos } from "@/lib/hooks";
 import { useActiveRepo, useRepoNotFound } from "@/lib/repo-context";
 import { TourView } from "./_components/TourView";
 
@@ -14,12 +15,24 @@ export default function TourPage() {
   const t = useTranslations("onboarding.page");
   const { repoId } = useParams<{ repoId: string }>();
   const { activeRepo } = useActiveRepo();
+  const repos = useRepos();
+  const reposStatus = repos.isError ? "error" : repos.isSuccess ? "ready" : "loading";
   const repoNotFound = useRepoNotFound(repoId);
   const crumb = [{ label: activeRepo?.full_name ?? "" }, { label: t("crumb") }];
 
   return (
     <AppShell crumb={crumb}>
-      {repoNotFound ? <RepoNotFound /> : <TourView key={repoId} repoId={repoId} repo={activeRepo} />}
+      {repoNotFound ? (
+        <RepoNotFound />
+      ) : (
+        <TourView
+          key={repoId}
+          repoId={repoId}
+          repo={activeRepo}
+          reposStatus={reposStatus}
+          onRetryRepos={() => void repos.refetch()}
+        />
+      )}
     </AppShell>
   );
 }

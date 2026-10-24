@@ -42,6 +42,19 @@ describe('isRetryable (AC60)', () => {
   });
 });
 
+describe('status wins over timeout wording', () => {
+  it('504 Gateway Timeout is a retryable HTTP error, not the deadline', () => {
+    const e = err({ status: 504 }, 'Gateway Timeout');
+    expect(isRetryable(e)).toBe(true);
+    expect(classifyGenerationError(e)).toBe(httpError(504));
+  });
+  it('408 Request Timeout is classified by status', () => {
+    const e = err({ status: 408 }, 'Request Timeout');
+    expect(classifyGenerationError(e)).toBe(httpError(408));
+    expect(classifyGenerationError(e)).not.toBe(ERROR_MESSAGES.deadline);
+  });
+});
+
 describe('classifyGenerationError (AC79)', () => {
   it('maps each class to its fixed text', () => {
     expect(classifyGenerationError(new GenerationAbort('deadline'))).toBe(ERROR_MESSAGES.deadline);

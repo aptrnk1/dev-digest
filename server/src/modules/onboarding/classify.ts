@@ -36,6 +36,8 @@ export function isSchemaFailure(err: unknown): boolean {
 
 function isTimeout(err: unknown): boolean {
   if (err instanceof GenerationAbort) return err.kind === 'deadline';
+  // An error carrying an HTTP status is classified by status (504/408 are not our deadline).
+  if (statusOf(err) !== undefined) return false;
   const name = nameOf(err);
   return (
     name === 'TimeoutError' ||

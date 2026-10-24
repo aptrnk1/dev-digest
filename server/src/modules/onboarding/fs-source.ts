@@ -1,5 +1,5 @@
-import { readdir, readFile, realpath, stat } from 'node:fs/promises';
-import { isAbsolute, join, relative, sep } from 'node:path';
+import { open, readdir, realpath, stat } from 'node:fs/promises';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { RepoFiles } from './ports.js';
 
 /** True when `target` is `root` or lies below it (both already realpath-resolved). */
@@ -66,7 +66,21 @@ export class FsRepoFiles implements RepoFiles {
     const full = await this.resolveInside(root, path);
     if (!full) return null;
     try {
-      const text = await readFile(full, 'utf8');
+      // A symlink at any component would let a harmless name expose a secret
+      // file (AC57): the real path must equal the lexical one.
+      const realRoot = await realpath(root);
+      if (full !== resolve(realRoot, path)) return null;
+      // Bounded read: UTF-8 is at most 4 bytes per char, so this prefix always
+      // holds at least maxChars characters.
+      const fh = await open(full, 'r');
+      let text: string;
+      try {
+        const buf = Buffer.alloc(opts.maxChars * 4);
+        const { bytesRead } = await fh.read(buf, 0, buf.length, 0);
+        text = buf.subarray(0, bytesRead).toString('utf8');
+      } finally {
+        await fh.close();
+      }
       return text.split('\n').slice(0, opts.maxLines).join('\n').slice(0, opts.maxChars);
     } catch {
       return null;

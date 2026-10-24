@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { isSafeRelativePath, isStaleRunning } from '../src/modules/onboarding/domain.js';
-import { ERROR_MESSAGES, httpError, STALE_RUN_MS } from '../src/modules/onboarding/constants.js';
+import { ERROR_MESSAGES, httpError, LOCK_FILES, MANIFEST_FILES, STALE_RUN_MS } from '../src/modules/onboarding/constants.js';
 
 describe('isSafeRelativePath', () => {
   it.each(['/etc/passwd', 'a/../b', '..', '../x', 'a\\b', 'a\0b', '', 'a//b'])('rejects %j', (p) => {
@@ -33,5 +33,16 @@ describe('ERROR_MESSAGES', () => {
   });
   it('formats the HTTP status', () => {
     expect(httpError(503)).toBe('The model provider returned an error (HTTP 503)');
+  });
+});
+
+describe('AC56 input file lists', () => {
+  it('reads exactly the spec manifests (pt.3)', () => {
+    expect([...MANIFEST_FILES].sort()).toEqual(
+      ['package.json', 'docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'Makefile', 'Dockerfile', '.env.example'].sort(),
+    );
+  });
+  it('names exactly the spec lock files (pt.4)', () => {
+    expect([...LOCK_FILES].sort()).toEqual(['pnpm-lock.yaml', 'package-lock.json', 'yarn.lock'].sort());
   });
 });

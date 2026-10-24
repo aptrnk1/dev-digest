@@ -38,7 +38,7 @@ class FakeStore implements OnboardingStore {
       ? null
       : { runId, status: 'running', error: null, startedAt: now, finishedAt: null },
   );
-  complete = vi.fn(async (_r: string, _id: string, _t: OnboardingTour) => this.completeResult);
+  complete = vi.fn(async (_r: string, _id: string, _t: OnboardingTour, _at?: Date) => this.completeResult);
   fail = vi.fn(async (_r: string, _id: string, _e: string) => this.failResult);
   async getRepo() {
     return this.repo;
@@ -204,6 +204,15 @@ describe('background generation', () => {
     expect(h.calls[0]!.timeoutMs).toBe(DEADLINE_MS);
     expect(h.store.fail).not.toHaveBeenCalled();
     expect(h.logger.error).not.toHaveBeenCalled();
+  });
+
+  it('tour generated_at equals the completion timestamp (AC52), even with an advancing clock', async () => {
+    let t = Date.parse('2026-10-24T10:00:00Z');
+    const h = make([ok], { now: () => new Date((t += 1)) });
+    await h.svc.generate(WS, 'r1');
+    await flush();
+    const [, , tour, at] = h.store.complete.mock.calls[0]!;
+    expect(tour.generated_at).toBe(at!.toISOString());
   });
 
   it('disabled repo-intel -> index_status none / 0 files', async () => {

@@ -37,6 +37,11 @@ describe('sanitizeLabel (AC66)', () => {
     expect(sanitizeLabel('')).toBe('_');
     expect(sanitizeLabel('x'.repeat(60))).toHaveLength(40);
   });
+  it('whitelist: everything outside A-Za-z0-9 space . _ / * @ : - becomes _', () => {
+    expect(sanitizeLabel('a(b)c;d&e#f$g%h')).toBe('a_b_c_d_e_f_g_h');
+    expect(sanitizeLabel("it's \u201Cq\u201D 'x' é日")).toBe('it_s _q_ _x_ __');
+    expect(sanitizeLabel('ok a.b_c/d*e@f:g-h')).toBe('ok a.b_c/d*e@f:g-h');
+  });
 });
 
 describe('sanitizeDraft', () => {
@@ -147,6 +152,20 @@ describe('sanitizeDraft', () => {
     expect(d.edges.length).toBeLessThanOrEqual(20);
     expect(d.edges.every((e) => /^n\d+$/.test(e.from) && /^n\d+$/.test(e.to))).toBe(true);
     expect(d.edges.find((e) => e.to === 'ghost')).toBeUndefined();
+  });
+
+  it('dedupes first_tasks after truncating the title', async () => {
+    const base = 'x'.repeat(79);
+    const out = await sanitizeDraft(
+      draft({
+        first_tasks: [
+          { title: base + 'AAA', description: 'd', size: 'S', files: [f(0)] },
+          { title: base + 'BBB', description: 'd', size: 'S', files: [f(1)] },
+        ],
+      }),
+      deps(),
+    );
+    expect(out.first_tasks).toHaveLength(1);
   });
 
   it('AC69: task without valid files dropped; 4 files -> 3', async () => {
