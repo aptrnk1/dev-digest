@@ -531,7 +531,7 @@ go here:
 | T8 | done | seed upsert not run vs Postgres (T13); first_tasks descriptions authored |
 | T9 | done | inline; icon Workflow (nearest to D1) |
 | T10 | done | useClipboard needs ToastProvider above; AC13 colours manual |
-| T11 | todo | |
-| T12 | todo | |
+| T11 | done | gatherInput (README/manifests/locks/ranked files/chains) private in service.ts; deadline via setTimeout + run.expired; logger passed to repository |
+| T12 | done | existing ToastProvider reused; error banner by ApiError.code |
 | T13 | todo | |
 | T14 | todo | |
