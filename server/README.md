@@ -78,6 +78,7 @@ flowchart TB
     intent["intent<br/>GET/POST /pulls/:id/intent"]
     smartDiff["smart-diff<br/>GET /pulls/:id/smart-diff"]
     blast["blast<br/>GET /pulls/:id/blast-radius"]
+    context["context (Project Context)<br/>GET /repos/:id/context(/file|/usage)<br/>GET/PUT /agents/:id/context · /skills/:id/context"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
