@@ -31,7 +31,19 @@ describe('truncate', () => {
   });
 });
 
+describe('truncate by code point', () => {
+  it('never leaves a lone surrogate and keeps the length limit', () => {
+    const out = truncate('ab' + '😀'.repeat(5), 4);
+    expect(out.length).toBeLessThanOrEqual(4);
+    expect(out).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+    expect(out.endsWith('…')).toBe(true);
+  });
+});
+
 describe('sanitizeLabel (AC66)', () => {
+  it('a long label stays within the whitelist and 40 chars', () => {
+    expect(sanitizeLabel('héllo wörld '.repeat(10))).toMatch(/^[A-Za-z0-9 ._/*@:-]{1,40}$/);
+  });
   it('replaces diagram-breaking characters with _', () => {
     expect(sanitizeLabel('"]<script>')).toBe('___script_');
     expect(sanitizeLabel('')).toBe('_');
@@ -41,6 +53,28 @@ describe('sanitizeLabel (AC66)', () => {
     expect(sanitizeLabel('a(b)c;d&e#f$g%h')).toBe('a_b_c_d_e_f_g_h');
     expect(sanitizeLabel("it's \u201Cq\u201D 'x' é日")).toBe('it_s _q_ _x_ __');
     expect(sanitizeLabel('ok a.b_c/d*e@f:g-h')).toBe('ok a.b_c/d*e@f:g-h');
+  });
+});
+
+describe('sanitizeDraft secret paths', () => {
+  it('drops existing secret paths everywhere', async () => {
+    const d = {
+      exists: async () => true,
+      contentPaths: new Set<string>(),
+    };
+    const out = await sanitizeDraft(
+      draft({
+        diagram: { nodes: [{ key: 'k', label: 'l', kind: 'service', path: '.env.production' }], edges: [] },
+        critical_paths: [{ path: 'deploy/key.pem', description: 'd' }],
+        reading_path: [{ path: '.env.production', why: 'w' }],
+        first_tasks: [{ title: 't', description: 'd', size: 'S', files: ['deploy/key.pem', 'src/a.ts'] }],
+      }),
+      d,
+    );
+    expect(out.architecture.diagram.nodes[0]!.path).toBeNull();
+    expect(out.critical_paths).toEqual([]);
+    expect(out.reading_path).toEqual([]);
+    expect(out.first_tasks[0]!.files).toEqual(['src/a.ts']);
   });
 });
 

@@ -215,6 +215,44 @@ describe('background generation', () => {
     expect(tour.generated_at).toBe(at!.toISOString());
   });
 
+  it('README: README_EN.md alone is read (AC56)', async () => {
+    const readCapped = vi.fn(async (_r: string, p: string) => `content of ${p}`);
+    const h = make([ok], { files: files({ listRootFiles: async () => ['README_EN.md', 'package.json'], readCapped }) });
+    await h.svc.generate(WS, 'r1');
+    await flush();
+    expect(readCapped.mock.calls.map((c) => c[1])).toContain('README_EN.md');
+  });
+
+  it.each([
+    ['README.md', 'README.ja.md'],
+    ['README.ja.md', 'README.md'],
+    ['readme.MD', 'README.ja.md'],
+  ])('README: deterministic pick regardless of order (%s, %s)', async (a, b) => {
+    const readCapped = vi.fn(async (_r: string, p: string) => `content of ${p}`);
+    const h = make([ok], { files: files({ listRootFiles: async () => [a, b], readCapped }) });
+    await h.svc.generate(WS, 'r1');
+    await flush();
+    const read = readCapped.mock.calls.map((c) => c[1]);
+    expect(read.filter((p) => /^readme/i.test(p))).toEqual([a.toLowerCase() === 'readme.md' || a === 'readme.MD' ? a : b]);
+  });
+
+  it('input files keep order (readme, manifests, ranked) when reads resolve out of order', async () => {
+    const readCapped = vi.fn(async (_r: string, p: string) => {
+      await new Promise((r) => setTimeout(r, p === 'package.json' ? 50 : 1));
+      return `content of ${p}`;
+    });
+    const h = make([ok], { files: files({ listRootFiles: async () => ['README.md', 'package.json'], readCapped }) });
+    await h.svc.generate(WS, 'r1');
+    await flush();
+    await vi.advanceTimersByTimeAsync(100);
+    await flush();
+    const user = JSON.stringify(h.calls[0]!.messages);
+    const at = (p: string) => user.indexOf(`content of ${p}`);
+    expect(at('README.md')).toBeGreaterThan(-1);
+    expect(at('README.md')).toBeLessThan(at('package.json'));
+    expect(at('package.json')).toBeLessThan(at('src/app.ts'));
+  });
+
   it('disabled repo-intel -> index_status none / 0 files', async () => {
     const h = make([ok], { repoIntelEnabled: false });
     await h.svc.generate(WS, 'r1');

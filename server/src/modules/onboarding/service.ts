@@ -68,6 +68,8 @@ interface Run {
   expired: boolean;
 }
 
+const rank = (f: string): number => (f.toLowerCase() === 'readme.md' ? 0 : 1);
+
 /**
  * Onboarding Tour use cases. POST validates synchronously (so 404 / 409 / 422
  * fail the request), writes the `running` row, then generates in the
@@ -230,26 +232,33 @@ export class OnboardingService implements OnboardingFacade {
     ]);
     const out: InputFile[] = [];
 
-    const readme = rootFiles.find((f) => /^readme(\.|$)/i.test(f));
-    if (readme && !isSecretPath(readme)) {
-      const content = await files.readCapped(root, readme, { maxLines: Number.MAX_SAFE_INTEGER, maxChars: MAX_README_CHARS });
-      if (content !== null) out.push({ path: readme, content, kind: 'readme' });
-    }
+    // README* (case-insensitive): exact README.md first, then shortest name, then lexicographic.
+    const readme = rootFiles
+      .filter((f) => /^readme/i.test(f) && !isSecretPath(f))
+      .sort((x, y) => rank(x) - rank(y) || x.length - y.length || (x < y ? -1 : x > y ? 1 : 0))[0];
     const manifests = (MANIFEST_FILES as readonly string[]).filter((m) => rootFiles.includes(m));
-    for (const m of manifests) {
-      const content = await files.readCapped(root, m, { maxLines: MAX_MANIFEST_LINES, maxChars: MAX_MANIFEST_CHARS });
-      if (content !== null) out.push({ path: m, content, kind: 'manifest' });
-    }
+    const [readmeContent, ...manifestContents] = await Promise.all([
+      readme ? files.readCapped(root, readme, { maxLines: Number.MAX_SAFE_INTEGER, maxChars: MAX_README_CHARS }) : null,
+      ...manifests.map((m) => files.readCapped(root, m, { maxLines: MAX_MANIFEST_LINES, maxChars: MAX_MANIFEST_CHARS })),
+    ]);
+    if (readme && readmeContent !== null) out.push({ path: readme, content: readmeContent, kind: 'readme' });
+    manifests.forEach((m, i) => {
+      const content = manifestContents[i];
+      if (content !== null && content !== undefined) out.push({ path: m, content, kind: 'manifest' });
+    });
 
     let chains: string[][] = [];
     if (ranked) {
       const seen = new Set(out.map((f) => f.path));
       const top = await index.getTopFilesByRank(run.repo.id, MAX_TOP_FILES * 2);
       const picked = top.filter((p) => !isSecretPath(p) && !seen.has(p)).slice(0, MAX_TOP_FILES);
-      for (const p of picked) {
-        const content = await files.readCapped(root, p, { maxLines: MAX_TOP_FILE_LINES, maxChars: MAX_TOP_FILE_CHARS });
-        if (content !== null) out.push({ path: p, content, kind: 'ranked' });
-      }
+      const contents = await Promise.all(
+        picked.map((p) => files.readCapped(root, p, { maxLines: MAX_TOP_FILE_LINES, maxChars: MAX_TOP_FILE_CHARS })),
+      );
+      picked.forEach((p, i) => {
+        const content = contents[i];
+        if (content !== null && content !== undefined) out.push({ path: p, content, kind: 'ranked' });
+      });
       chains = (await index.getCriticalPaths(run.repo.id)).filter((c) => !c.some(isSecretPath));
     }
 

@@ -242,6 +242,13 @@ describe("TourView states", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("shows the not-cloned state without Try again when a failed run has no clone", () => {
+    tourState = { data: { tour: null, job: job("failed", "Generation timed out") } };
+    renderView({ ...REPO, clone_path: null } as Repo);
+    expect(screen.getByText(onboarding.states.notCloned)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+  });
+
   it("shows the failure and Try again when a first run failed", () => {
     tourState = { data: { tour: null, job: job("failed", "Generation timed out") } };
     renderView();

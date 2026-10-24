@@ -84,6 +84,16 @@ function GenerateError({ error }: { error: unknown }) {
   return <Banner>{t("startFailed", { message })}</Banner>;
 }
 
+function LoadingSkeleton() {
+  return (
+    <div style={s.page} aria-busy="true">
+      <Skeleton height={40} />
+      <Skeleton height={200} />
+      <Skeleton height={160} />
+    </div>
+  );
+}
+
 export type ReposStatus = "loading" | "error" | "ready";
 
 export function TourView({
@@ -134,13 +144,7 @@ export function TourView({
   const start = () => generate.mutate();
 
   if (!repo && reposStatus === "loading") {
-    return (
-      <div style={s.page} aria-busy="true">
-        <Skeleton height={40} />
-        <Skeleton height={200} />
-        <Skeleton height={160} />
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
   if (!repo && reposStatus === "error") {
     return <ErrorState title={t("states.loadError.title")} onRetry={onRetryRepos} />;
@@ -149,13 +153,7 @@ export function TourView({
     return <EmptyState icon="GitBranch" title={t("states.noRepo")} cta={t("states.addRepo")} onCta={() => router.push("/onboarding")} />;
   }
   if (isLoading) {
-    return (
-      <div style={s.page} aria-busy="true">
-        <Skeleton height={40} />
-        <Skeleton height={200} />
-        <Skeleton height={160} />
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
   if (isError && !data) {
     return <ErrorState title={t("states.loadError.title")} onRetry={() => refetch()} />;
@@ -173,13 +171,13 @@ export function TourView({
       <div>
         {connectionLost && <Banner live>{t("states.connectionLost")}</Banner>}
         <GenerateError error={generate.error} />
-        {failedJob ? (
+        {!cloned ? (
+          <EmptyState icon="GitBranch" title={t("states.empty.title")} body={t("states.notCloned")} />
+        ) : failedJob ? (
           <>
             <Banner>{t("states.failed", { error: failedJob.error ?? "" })}</Banner>
             <EmptyState icon="RefreshCw" title={t("states.empty.title")} cta={t("states.tryAgain")} onCta={start} />
           </>
-        ) : !cloned ? (
-          <EmptyState icon="GitBranch" title={t("states.empty.title")} body={t("states.notCloned")} />
         ) : (
           <EmptyState
             icon="Layers"

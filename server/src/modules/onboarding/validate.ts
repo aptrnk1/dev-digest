@@ -14,6 +14,7 @@ import {
   MAX_TASK_TITLE,
 } from './constants.js';
 import { isSafeRelativePath } from './domain.js';
+import { isSecretPath } from './input.js';
 import type { OnboardingTourDraft } from './prompt.js';
 
 export type TourBody = Omit<
@@ -28,12 +29,17 @@ export interface SanitizeDeps {
 
 /** Length <= max; a cut text ends with «…». */
 export function truncate(text: string, max: number): string {
-  return text.length <= max ? text : text.slice(0, Math.max(0, max - 1)) + '…';
+  if (text.length <= max) return text;
+  let cut = text.slice(0, Math.max(0, max - 1));
+  // Never end on half of a surrogate pair (Postgres jsonb rejects a lone surrogate).
+  if (/[\uD800-\uDBFF]$/.test(cut)) cut = cut.slice(0, -1);
+  return cut + '…';
 }
 
 /** Whitelist (AC66): anything outside A-Z a-z 0-9 space . _ / * @ : - becomes `_`. */
 export function sanitizeLabel(label: string): string {
-  const s = truncate(label.replace(/[^A-Za-z0-9 ._/*@:-]/g, '_').trim(), MAX_NODE_LABEL);
+  // Whitelist first, then a plain cut: «…» is outside the AC66 set.
+  const s = label.replace(/[^A-Za-z0-9 ._/*@:-]/g, '_').trim().slice(0, MAX_NODE_LABEL).trim();
   return s === '' ? '_' : s;
 }
 
@@ -48,7 +54,8 @@ function dedupe<T>(items: T[], key: (t: T) => string): T[] {
 }
 
 /**
- * Order matters: drop invalid -> dedupe -> count caps from the end -> truncate texts.
+ * Order matters: drop invalid (unsafe, secret or missing paths) -> truncate texts/titles -> dedupe
+ * -> count caps from the end (nodes/edges are deduped by key, then capped).
  */
 export async function sanitizeDraft(
   draft: OnboardingTourDraft,
@@ -56,7 +63,7 @@ export async function sanitizeDraft(
 ): Promise<TourBody> {
   const cache = new Map<string, Promise<boolean>>();
   const valid = (p: string): Promise<boolean> => {
-    if (!isSafeRelativePath(p)) return Promise.resolve(false);
+    if (!isSafeRelativePath(p) || isSecretPath(p)) return Promise.resolve(false);
     let r = cache.get(p);
     if (!r) {
       r = deps.exists(p).catch(() => false);
