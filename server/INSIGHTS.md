@@ -6,10 +6,15 @@
 ## What Works
 
 ## What Doesn't Work
+- 2026-10-24 · NEVER classify a provider error by timeout wording before its HTTP status — a 504 "Gateway Timeout" message matched `/timed? ?out/` and was treated as our own deadline (no retry, wrong error text); check status first, regex only for status-less errors (server/src/modules/onboarding/classify.ts)
+- 2026-10-24 · NEVER rely on a name-based secret filter alone when reading clone files for an LLM — a harmless-named symlink (`config/settings.txt -> ../.env`) passes `isSecretPath` and leaks `.env`; also refuse any path whose realpath differs from the lexical resolve (server/src/modules/onboarding/fs-source.ts readCapped)
 - 2026-10-24 · NEVER log a best-effort enrichment failure in run-executor with `runLog.error` — error lines go out as SSE `error` events and the client shows an "agent failure" toast for a run that succeeded; use `runLog.info` (server/src/modules/reviews/run-executor.ts Project context catch · client/src/lib/hooks/reviews.ts)
 - 2026-10-24 · NEVER test path containment with `relative(root, p).startsWith('..')` — a legit root file `..notes.md` counts as outside; check `rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)` (server/src/modules/context/fs-scanner.ts within())
 
 ## Codebase Patterns
+- 2026-10-24 · ALWAYS construct module-local outbound adapters (`modules/<m>/fs-source.ts`, `repository.ts`) only in `compose.ts` and check `service.ts` imports by hand — depcruise `modules-no-concrete-adapters` only covers `src/adapters/**`, so a service importing them passes arch:check (server/src/modules/onboarding/compose.ts)
+- 2026-10-24 · Wire Container-backed per-request factories (e.g. `container.llmWithLimits(id, limits)`) into a module as a closure in `compose.ts` behind a port (`ResolveModel`) — the service never sees the Container and the retries→maxRetries mapping lives in one place (server/src/modules/onboarding/compose.ts)
+- 2026-10-24 · ALWAYS take ONE `now()` when two persisted values must match (tour `generated_at` vs job `finished_at`) — two clock reads drift ~1 ms and the `.it` equality assertion fails only intermittently (server/src/modules/onboarding/service.ts execute)
 - 2026-10-24 · ALWAYS wait for the `run_traces` row, not only a terminal `agent_runs.status`, before a test reads a trace — the executor marks the run done before saveRunTrace, so trace reads right after flake (~1 in 3) (server/test/helpers/runs.ts waitForPrRuns)
 - 2026-10-23 · DON'T expect `getBlastRadius` callers to be capped per symbol — `MAX_CALLERS_PER_SYMBOL` (20) is one global `slice` after the rank sort, so on a big PR a low-ranked symbol can show fewer (or zero) callers than it has; fix it in repo-intel, not in a consumer mapper (server/src/modules/repo-intel/service.ts:386)
 - 2026-10-23 · ALWAYS type a pure mapper's input from another module's read model as `Pick<…>` of the fields it reads (e.g. `BlastIndexView = Pick<IndexState, …>`) — fallback/error paths can then build a typed literal instead of `{…} as IndexState`, which hides missing required fields (server/src/modules/blast/helpers.ts)
@@ -20,6 +25,8 @@
 - 2026-10-14 · DO persist run cost from `outcome.costUsd` at completion, don't recompute tokens×price on read — it keeps OpenRouter's real `usage.cost` and the price at run time; failed/cancelled → null (server/src/modules/reviews/run-executor.ts)
 
 ## Tool & Library Notes
+- 2026-10-24 · Truncate LLM text by code point, not UTF-16 unit, before writing jsonb — a cut through an emoji leaves a lone high surrogate that JSON.stringify escapes and Postgres jsonb rejects ("Unicode low surrogate must follow a high surrogate"), failing the whole save (server/src/modules/onboarding/validate.ts truncate)
+- 2026-10-24 · `scripts/check.sh <pkg> test <filter>` filters are relative to the package dir (`test/x.test.ts` for server, `src/...` for client) — a repo-root path like `server/test/x.test.ts` matches nothing (scripts/check.sh)
 - 2026-10-22 · NEVER read a `.it.test` run that reports all tests skipped as green — inside the Claude Code sandbox testcontainers can't reach Docker and the suites skip; check the skipped count, rerun with the sandbox disabled (`pnpm exec vitest run .it.test --no-file-parallelism`)
 - 2026-10-19 · `pnpm db:generate` blocks on an interactive "created or renamed?" prompt for every new column when the same table also drops one — non-TTY runs hang; drive it through a pty and answer Enter (= create), or split the drop into its own migration (server/src/db/migrations/0013_slim_gideon.sql)
 - 2026-10-18 · NEVER add `'types'` to dependency-cruiser `conditionNames` together with a `\.d\.ts$` exclude — npm deps (drizzle-orm) resolve to `.d.ts`, get excluded, and `forbidden` rules on them silently never fire; probe a rule with a deliberate violation before trusting it (server/.dependency-cruiser.cjs)
@@ -30,6 +37,7 @@
 - 2026-10-18 · `pnpm arch:check` reports 5 `drizzle-only-in-repositories` errors in legacy routes (workspace/settings/pulls/polling) that are NOT new — the baseline pins `drizzle-orm@0.38.4` paths and the S7 bump moved it to 0.45.4; re-run `pnpm arch:baseline` after a dep bump (only for this path drift) instead of chasing them (server/.dependency-cruiser-known-violations.json)
 
 ## Session Notes
+- 2026-10-24 · L05 Onboarding Tour: modules/onboarding (202 → background LLM run, tryStart upsert + run_id CAS, 180 s deadline, ≤2 HTTP requests, AC56 input with secret/symlink refusal, sanitize/validate), onboarding table state columns, seed tour, docs/onboarding-tour.md (specs/2026-10-24-onboarding-tour.md)
 - 2026-10-23 · L04 Blast Radius: modules/blast (one repoIntel.getBlastRadius + getIndexState → BlastRadiusResponse, degraded reasons derived from flag/index state), seed index rows for #482, Overview BlastRadiusCard, MCP get_blast_radius over the route (specs/plans/blast-radius.md)
 - 2026-10-19 · L02 Conventions: modules/conventions (code-only sampling → one ConventionExtraction call → verifyEvidence gate), convention_scans, skills accept `source: extracted` + evidence_files (specs/conventions.md)
 - 2026-10-18 · L02 Skills: modules/skills (CRUD + versions + zip/md import preview), agent_skills.enabled, enabled skills → prompt + skills_detail/block_tokens in trace (specs/skills.md)

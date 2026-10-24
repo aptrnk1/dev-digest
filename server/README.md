@@ -176,6 +176,10 @@ What the reviewer actually sends to the model is assembled in
   `<untrusted source="spec:<path>">`, and summarised in one Live Log line
   (`Project context: N doc(s), +T tokens — …`). A failure or a missing clone/base
   ref skips the docs, never the run. Details: [`docs/project-context.md`](docs/project-context.md).
+- **Onboarding Tour (`modules/onboarding`).** `POST /repos/:id/onboarding/generate`
+  answers `202` and generates in the background (180 s deadline, at most 2 provider
+  requests); the client polls `GET /repos/:id/onboarding`. Details:
+  [`docs/onboarding-tour.md`](docs/onboarding-tour.md).
 - **Grounding is mandatory.** Every finding must cite a line that exists in the
   diff or it is dropped (`groundFindings`), and the score is recomputed from the
   surviving findings — the model's self-reported score is ignored.

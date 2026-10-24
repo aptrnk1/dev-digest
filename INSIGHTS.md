@@ -4,8 +4,10 @@
      Entry: - YYYY-MM-DD · <ALWAYS/NEVER/do X> — <why> (<path:line | command>) -->
 
 ## What Works
+- 2026-10-24 · When a spec fixes a list "exactly" (рівно), pin it with a unit test in the task that owns the constant — implementers otherwise add "helpful" extras unnoticed (AC56 manifest/lock lists drifted; server/test/onboarding-domain.test.ts)
 
 ## What Doesn't Work
+- 2026-10-24 · NEVER treat plan-verifier DONE on UI-state or budget ACs as final — in Onboarding Tour it passed AC25/AC35/AC76/AC78, and /code-review high reading whole files later found each deviating from the AC text; run one whole-file review before the fix loop, not only delta reviews (specs/plans/reports/2026-10-24-onboarding-tour/review-3.md)
 
 ## Codebase Patterns
 
