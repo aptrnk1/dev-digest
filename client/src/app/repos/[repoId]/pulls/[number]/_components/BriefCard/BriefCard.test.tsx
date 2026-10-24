@@ -161,6 +161,7 @@ describe("BriefCard", () => {
       get.mockResolvedValue({ brief: BRIEF, stale: false });
       fireEvent.click(screen.getByRole("button", { name: "Regenerate brief" }));
       expect(await screen.findByText(messages.generateError.inProgress)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Generating brief…" })).toBeDisabled();
       await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
       get.mockResolvedValue({
         brief: { ...BRIEF, summary: "Fresh summary", generated_at: "2026-10-24T10:05:00.000Z" },
@@ -168,6 +169,8 @@ describe("BriefCard", () => {
       });
       await vi.advanceTimersByTimeAsync(5_100);
       expect(await screen.findByText("Fresh summary")).toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByText(messages.generateError.inProgress)).toBeNull());
+      expect(screen.getByRole("button", { name: "Regenerate brief" })).toBeEnabled();
       const calls = get.mock.calls.length;
       await vi.advanceTimersByTimeAsync(11_000);
       expect(get.mock.calls.length).toBe(calls);

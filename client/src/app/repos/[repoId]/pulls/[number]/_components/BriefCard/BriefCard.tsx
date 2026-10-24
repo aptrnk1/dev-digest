@@ -23,19 +23,33 @@ export function BriefCard({ prId }: { prId: string | null }) {
   const generate = useGenerateBrief(prId);
   const generatedAt = data?.brief?.generated_at ?? null;
 
-  React.useEffect(() => {
-    if (pollFrom && generatedAt !== pollFrom.from) setPollFrom(null);
-  }, [pollFrom, generatedAt]);
-  React.useEffect(() => {
-    if (!pollFrom) return;
-    const id = setTimeout(() => setPollFrom(null), POLL_MAX_MS);
-    return () => clearTimeout(id);
-  }, [pollFrom]);
+  const { reset } = generate;
+  const polling = pollFrom !== null;
 
+  // Polling over (new brief seen, window ended, PR changed): drop the poll
+  // state and the stale "in progress" alert together.
+  const stopPolling = React.useCallback(() => {
+    setPollFrom(null);
+    reset();
+  }, [reset]);
+
+  React.useEffect(() => {
+    stopPolling();
+  }, [prId, stopPolling]);
+  React.useEffect(() => {
+    if (pollFrom && generatedAt !== pollFrom.from) stopPolling();
+  }, [pollFrom, generatedAt, stopPolling]);
+  React.useEffect(() => {
+    if (!polling) return;
+    const id = setTimeout(stopPolling, POLL_MAX_MS);
+    return () => clearTimeout(id);
+  }, [polling, stopPolling]);
+
+  const busy = generate.isPending || polling;
   const run = () =>
     generate.mutate(undefined, {
       onError: (e) => {
-        if (e.status === 409) {
+        if (e instanceof ApiError && e.code === "brief_in_progress") {
           setPollFrom({ from: generatedAt });
           void refetch();
         }
@@ -88,10 +102,10 @@ export function BriefCard({ prId }: { prId: string | null }) {
             <Button
               kind="primary"
               icon="Sparkles"
-              loading={generate.isPending}
+              loading={busy}
               onClick={run}
             >
-              {generate.isPending ? t("generating") : t("generate")}
+              {busy ? t("generating") : t("generate")}
             </Button>
             {errorLine}
           </div>
@@ -118,10 +132,10 @@ export function BriefCard({ prId }: { prId: string | null }) {
               kind="secondary"
               size="sm"
               icon="RefreshCw"
-              loading={generate.isPending}
+              loading={busy}
               onClick={run}
             >
-              {generate.isPending ? t("generating") : t("refresh")}
+              {busy ? t("generating") : t("refresh")}
             </Button>
           </div>
         }
