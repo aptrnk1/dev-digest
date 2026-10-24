@@ -330,12 +330,12 @@ go here:
 ## Progress
 | Task | Status | Notes |
 |------|--------|-------|
-| T1 | todo | |
-| T2 | todo | |
-| T3 | todo | |
-| T4 | todo | |
-| T5 | todo | |
-| T6 | todo | |
+| T1 | done | check.sh typecheck needed pnpm 12 `--silent` fix (applied by orchestrator) |
+| T2 | done | migration 0015; table not in `schema` object of db/schema.ts (outside Owns) → repositories use db.select/insert, not db.query |
+| T3 | done | tests written after code (no red evidence) |
+| T4 | done | inline by orchestrator; added spec: label assert |
+| T5 | done | RunAttachments/MergedDoc live in types.ts; extra consts INCLUDED_DOT_DIR, DOC_EXTENSIONS |
+| T6 | done | some context.json keys (panel.title/skillTitle, grip) are implementer wording — no AC text |
 | T7 | todo | |
 | T8 | todo | |
 | T9 | todo | |

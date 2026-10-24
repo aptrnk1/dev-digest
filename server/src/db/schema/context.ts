@@ -9,9 +9,14 @@ import {
   vector,
   index,
   uniqueIndex,
+  check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { now } from './_shared';
 import { workspaces } from './core';
 import { repos } from './repos';
+import { agents } from './agents';
+import { skills } from './skills';
 
 // ============================================================ Context & codebase
 
@@ -124,3 +129,35 @@ export const onboarding = pgTable('onboarding', {
   json: jsonb('json').notNull(),
   generatedAt: timestamp('generated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+/**
+ * `context_attachments` — Project Context docs (repo `*.md`) attached to an
+ * agent OR a skill, per repo. Exactly one owner (CHECK). `order` is the
+ * serialization order in the prompt.
+ */
+export const contextAttachments = pgTable(
+  'context_attachments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    repoId: uuid('repo_id')
+      .notNull()
+      .references(() => repos.id, { onDelete: 'cascade' }),
+    agentId: uuid('agent_id').references(() => agents.id, { onDelete: 'cascade' }),
+    skillId: uuid('skill_id').references(() => skills.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    order: integer('order').notNull(),
+    createdAt: now(),
+  },
+  (t) => ({
+    ownerCk: check(
+      'context_attachments_owner_ck',
+      sql`(${t.agentId} is not null) <> (${t.skillId} is not null)`,
+    ),
+    agentUq: uniqueIndex('context_attachments_agent_repo_path_uq').on(t.agentId, t.repoId, t.path),
+    skillUq: uniqueIndex('context_attachments_skill_repo_path_uq').on(t.skillId, t.repoId, t.path),
+    usageIdx: index('context_attachments_repo_path_idx').on(t.repoId, t.path),
+  }),
+);

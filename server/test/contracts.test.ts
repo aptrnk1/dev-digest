@@ -18,6 +18,11 @@ import {
   PrDetail,
   PrIntentState,
   PromptAssembly,
+  SpecFile,
+  SpecFileList,
+  ContextDocUsage,
+  ContextAttachments,
+  ContextAttachmentsInput,
   FEATURE_MODELS,
 } from '@devdigest/shared';
 
@@ -477,5 +482,46 @@ describe('Intent layer contracts', () => {
     const m = FEATURE_MODELS.find((f) => f.id === 'review_intent');
     expect(m?.defaultProvider).toBe('openrouter');
     expect(m?.defaultModel).toBe('anthropic/claude-haiku-4-5');
+  });
+
+  describe('Project Context contracts', () => {
+    const doc = {
+      path: 'docs/a.md',
+      folder: 'docs',
+      category: 'docs',
+      size: 10,
+      tokens: null,
+      status: 'too_large',
+    };
+    const id = '11111111-1111-4111-8111-111111111111';
+
+    it('SpecFile / SpecFileList parse and reject bad enums', () => {
+      expect(SpecFile.parse(doc).tokens).toBeNull();
+      expect(SpecFileList.parse({ docs: [doc], truncated: false }).docs).toHaveLength(1);
+      expect(SpecFile.safeParse({ ...doc, category: 'other' }).success).toBe(false);
+      expect(SpecFile.safeParse({ ...doc, status: 'missing' }).success).toBe(false);
+      expect(SpecFile.safeParse({ path: 'a.md' }).success).toBe(false);
+    });
+
+    it('ContextDocUsage and ContextAttachments parse', () => {
+      expect(ContextDocUsage.parse({ agents: [{ id: 'a', name: 'A' }], skills: [] }).skills).toEqual([]);
+      const ok = ContextAttachments.parse({
+        repo_id: id,
+        attached: [{ path: 'a.md', status: 'missing', tokens: null }],
+        inherited: [{ path: 'b.md', skill_id: id, skill_name: 'S', status: 'ok', tokens: 5 }],
+      });
+      expect(ok.inherited[0]?.tokens).toBe(5);
+      expect(
+        ContextAttachments.safeParse({ repo_id: id, attached: [{ path: 'a', status: 'x', tokens: 1 }], inherited: [] })
+          .success,
+      ).toBe(false);
+    });
+
+    it('ContextAttachmentsInput caps paths at 50', () => {
+      const paths = (n: number) => Array.from({ length: n }, (_, i) => `d${i}.md`);
+      expect(ContextAttachmentsInput.safeParse({ paths: paths(50) }).success).toBe(true);
+      expect(ContextAttachmentsInput.safeParse({ paths: paths(51) }).success).toBe(false);
+      expect(ContextAttachmentsInput.safeParse({ paths: [''] }).success).toBe(false);
+    });
   });
 });

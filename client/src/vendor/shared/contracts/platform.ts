@@ -246,8 +246,53 @@ export const SpecFile = z.object({
   content: z.string().nullish(),
   size: z.number().int().nullish(),
   updated_at: z.string().nullish(),
+  folder: z.string(),
+  category: z.enum(['specs', 'insights', 'docs']),
+  tokens: z.number().int().nullable(),
+  status: z.enum(['ok', 'too_large']),
 });
 export type SpecFile = z.infer<typeof SpecFile>;
+
+export const SpecFileList = z.object({
+  docs: z.array(SpecFile),
+  truncated: z.boolean(),
+});
+export type SpecFileList = z.infer<typeof SpecFileList>;
+
+export const ContextDocUsage = z.object({
+  agents: z.array(z.object({ id: z.string(), name: z.string() })),
+  skills: z.array(z.object({ id: z.string(), name: z.string() })),
+});
+export type ContextDocUsage = z.infer<typeof ContextDocUsage>;
+
+export const ContextAttachmentStatus = z.enum(['ok', 'too_large', 'missing']);
+export type ContextAttachmentStatus = z.infer<typeof ContextAttachmentStatus>;
+
+export const ContextAttachments = z.object({
+  repo_id: z.string().uuid(),
+  attached: z.array(
+    z.object({
+      path: z.string(),
+      status: ContextAttachmentStatus,
+      tokens: z.number().int().nullable(),
+    }),
+  ),
+  inherited: z.array(
+    z.object({
+      path: z.string(),
+      skill_id: z.string().uuid(),
+      skill_name: z.string(),
+      status: ContextAttachmentStatus,
+      tokens: z.number().int().nullable(),
+    }),
+  ),
+});
+export type ContextAttachments = z.infer<typeof ContextAttachments>;
+
+export const ContextAttachmentsInput = z.object({
+  paths: z.array(z.string().min(1)).max(50),
+});
+export type ContextAttachmentsInput = z.infer<typeof ContextAttachmentsInput>;
 
 export const IndexStatus = z.object({
   status: z.enum(['idle', 'cloning', 'parsing', 'embedding', 'done', 'error']),

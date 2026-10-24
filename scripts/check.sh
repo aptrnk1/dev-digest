@@ -101,9 +101,9 @@ cmd_for() { # step → shell command run inside $root/$pkg
   local a
   for a in ${extra[@]+"${extra[@]}"}; do args="$args '$a'"; done
   case "$pkg:$1" in
-    server:typecheck|client:typecheck) echo "pnpm -s typecheck" ;;
+    server:typecheck|client:typecheck) echo "pnpm --silent typecheck" ;;
     reviewer-core:typecheck|mcp:typecheck) echo "npm run -s typecheck" ;;
-    server:arch)  echo "pnpm -s arch:check" ;;
+    server:arch)  echo "pnpm --silent arch:check" ;;
     mcp:arch)     echo "npm run -s arch:check" ;;
     server:test)  echo "pnpm exec vitest run --exclude '**/*.it.test.ts' $vitest_flags$args" ;;
     server:it)    echo "pnpm exec vitest run --no-file-parallelism $vitest_flags${args:- .it.test}" ;;
