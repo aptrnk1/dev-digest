@@ -65,7 +65,8 @@ export function BriefCard({ prId }: { prId: string | null }) {
     );
   }
 
-  if (isError) {
+  // A failed background refetch must not hide a brief we already have.
+  if (isError && !data) {
     return (
       <section>
         <SectionLabel icon="FileText">{t("title")}</SectionLabel>

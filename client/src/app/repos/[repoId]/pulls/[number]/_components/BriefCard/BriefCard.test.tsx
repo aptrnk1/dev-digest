@@ -36,13 +36,16 @@ const BRIEF: PrBrief = {
 
 function ui() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  return {
+    qc,
+    ...render(
     <QueryClientProvider client={qc}>
       <NextIntlClientProvider locale="en" messages={{ brief: messages }}>
         <BriefCard prId="pr1" />
       </NextIntlClientProvider>
     </QueryClientProvider>,
-  );
+    ),
+  };
 }
 
 function withBrief(extra: Partial<PrBrief> = {}, stale = false) {
@@ -67,6 +70,17 @@ describe("BriefCard", () => {
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
     expect(await screen.findByText("Brief not available yet.")).toBeInTheDocument();
+  });
+
+  it("a failed refetch keeps the cached brief and shows no ErrorState", async () => {
+    withBrief();
+    const { qc } = ui();
+    expect(await screen.findByText(BRIEF.summary)).toBeInTheDocument();
+    get.mockRejectedValue(new ApiError("boom", 500));
+    await qc.refetchQueries();
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    expect(screen.getByText(BRIEF.summary)).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load the brief")).toBeNull();
   });
 
   it("empty state: text, hint, Generate button, and no POST until clicked", async () => {
@@ -163,6 +177,10 @@ describe("BriefCard", () => {
       expect(await screen.findByText(messages.generateError.inProgress)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Generating brief…" })).toBeDisabled();
       await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+      await vi.advanceTimersByTimeAsync(5_100);
+      await waitFor(() => expect(get).toHaveBeenCalledTimes(3));
+      expect(screen.getByText(messages.generateError.inProgress)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Generating brief…" })).toBeDisabled();
       get.mockResolvedValue({
         brief: { ...BRIEF, summary: "Fresh summary", generated_at: "2026-10-24T10:05:00.000Z" },
         stale: false,
