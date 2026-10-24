@@ -9,6 +9,7 @@ export interface EditorTab {
 /** Editor tabs (mockup order). Evals is a mount point for the L06 eval pipeline. */
 export const TABS: readonly EditorTab[] = [
   { key: "config", labelKey: "editor.tabs.config" },
+  { key: "context", labelKey: "editor.tabs.context" },
   { key: "preview", labelKey: "editor.tabs.preview" },
   { key: "evals", labelKey: "editor.tabs.evals", mountOwner: "L06 · Eval pipeline" },
   { key: "stats", labelKey: "editor.tabs.stats" },
