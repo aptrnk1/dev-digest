@@ -14,6 +14,7 @@ vi.mock("../../../../../lib/hooks/agents", () => ({
 }));
 
 import { AgentEditor } from "./AgentEditor";
+import { TAB_KEYS } from "./constants";
 
 afterEach(cleanup);
 
@@ -49,6 +50,13 @@ describe("A2 Agent Editor (smoke)", () => {
     expect(screen.getByText("~7 / 8,000 tokens")).toBeInTheDocument();
     // Provider / strategy / CI gate / repo intel live behind "Advanced".
     expect(screen.queryByText("Review strategy")).not.toBeInTheDocument();
+  });
+
+  it("has a Context tab between Skills and Evals, reachable via ?tab=context (AC31)", () => {
+    renderWithIntl(<AgentEditor agent={AGENT} tab="config" onTab={() => {}} />);
+    const labels = screen.getAllByRole("button").map((el) => el.textContent);
+    expect(labels.slice(0, 6)).toEqual(["Config", "Skills", "Context", "Evals", "Stats", "CI"]);
+    expect(TAB_KEYS).toContain("context");
   });
 
   it("shows a later-lesson mount point on the Stats tab", () => {
