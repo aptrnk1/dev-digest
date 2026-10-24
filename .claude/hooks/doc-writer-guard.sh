@@ -56,7 +56,7 @@ esac
 case "$lrel" in
   claude.md|*/claude.md)       block "CLAUDE.md files are maintained by humans (suggest changes in the report)" ;;
   insights.md|*/insights.md)   block "INSIGHTS.md is append-only via the engineering-insights skill (report Insight candidates instead)" ;;
-  specs/plans/*)               block "plans in specs/plans/ belong to planner/orchestrator" ;;
+  specs/plans/*)               block "plans in specs/plans/ belong to implementation-planner/orchestrator" ;;
   docs/agent-prompts/*)        block "built-in agent prompts are edited by humans only (see docs/agent-prompts/README.md)" ;;
   docs/features/*)             block "docs/features/ is the sdd layout, not used in this project" ;;
   e2e/specs/*)                 block "e2e/specs/ holds only flow JSON" ;;

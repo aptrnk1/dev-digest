@@ -33,6 +33,26 @@ export function wrapUntrusted(label: string, content: string): string {
   return `<untrusted source="${label}">\n${safe}\n</untrusted>`;
 }
 
+/** A project document (untrusted) attached as context. */
+export interface ProjectSpec {
+  path: string;
+  content: string;
+}
+
+/** `spec:<path>` with characters that could break the attribute replaced by `_`. */
+export function specLabel(path: string): string {
+  return `spec:${path.replace(/["<>]/g, '_')}`;
+}
+
+export function wrapSpec(spec: ProjectSpec): string {
+  return wrapUntrusted(specLabel(spec.path), spec.content);
+}
+
+/** Exactly `assembly.specs`: each doc in its own `<untrusted>` block, input order. */
+export function renderSpecsBlock(specs: ProjectSpec[] | undefined): string | undefined {
+  return specs && specs.length > 0 ? specs.map(wrapSpec).join('\n\n') : undefined;
+}
+
 /** Cap the PR description so a huge author body can't blow the token budget. */
 const MAX_PR_DESCRIPTION_CHARS = 4000;
 
@@ -46,8 +66,8 @@ export interface PromptParts {
   skills?: string[];
   /** Relevant memory items (trusted, curated). */
   memory?: string[];
-  /** Project-context spec chunks (untrusted content). */
-  specs?: string[];
+  /** Project-context documents (untrusted content). */
+  specs?: ProjectSpec[];
   /**
    * Repo skeleton / map (T3): top-ranked symbols by signature, token-budgeted.
    * Untrusted (derived from repo code) — delimiter-wrapped. Rendered before
@@ -100,10 +120,7 @@ export function assemblePrompt(parts: PromptParts): AssembledPrompt {
     parts.memory && parts.memory.length > 0
       ? parts.memory.map((m) => `- ${m}`).join('\n')
       : undefined;
-  const specsBlock =
-    parts.specs && parts.specs.length > 0
-      ? parts.specs.map((s, i) => wrapUntrusted(`spec-${i}`, s)).join('\n\n')
-      : undefined;
+  const specsBlock = renderSpecsBlock(parts.specs);
 
   const prDescription =
     parts.prDescription && parts.prDescription.trim().length > 0

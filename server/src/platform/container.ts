@@ -33,6 +33,11 @@ import type { SmartDiffFacade } from '../modules/smart-diff/types.js';
 import { createSmartDiffFacade } from '../modules/smart-diff/compose.js';
 import type { BlastFacade } from '../modules/blast/types.js';
 import { createBlastFacade } from '../modules/blast/compose.js';
+import type { ContextFacade, RunContextFacade } from '../modules/context/types.js';
+import { createContextFacade, createRunContextFacade } from '../modules/context/compose.js';
+import type { OnboardingFacade } from '../modules/onboarding/types.js';
+import type { OnboardingLogger } from '../modules/onboarding/ports.js';
+import { createOnboardingFacade } from '../modules/onboarding/compose.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
@@ -45,6 +50,12 @@ import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.j
  * Tests construct a container with `overrides` to inject mock adapters; the
  * Services depend on these interfaces, not the concrete classes.
  */
+/** Transport limits for a one-off provider (see `Container.llmWithLimits`). */
+export interface LlmLimits {
+  maxRetries: number;
+  timeoutMs: number;
+}
+
 export interface ContainerOverrides {
   secrets?: SecretsProvider;
   auth?: AuthProvider;
@@ -54,6 +65,8 @@ export interface ContainerOverrides {
   embedder?: Embedder;
   /** Pre-built providers by id (skip key lookup). */
   llm?: Partial<Record<'openai' | 'anthropic' | 'openrouter', LLMProvider>>;
+  /** Replaces `llmWithLimits` (tests) — skips key lookup. */
+  llmWithLimits?: (id: 'openai' | 'anthropic' | 'openrouter', limits: LlmLimits) => LLMProvider;
   /** repo-intel facade (T1.1+) — tests inject mock RepoIntel implementations. */
   repoIntel?: RepoIntel;
   /** Intent Layer facade — tests inject a stub instead of the LLM-backed one. */
@@ -63,6 +76,11 @@ export interface ContainerOverrides {
   /** Smart Diff facade — route tests inject a stub (no DB). */
   smartDiff?: SmartDiffFacade;
   blast?: BlastFacade;
+  /** Onboarding Tour facade — route tests inject a stub (no DB / FS / LLM). */
+  onboarding?: OnboardingFacade;
+  /** Project Context facade — route tests inject a stub (no DB / FS). */
+  projectContext?: ContextFacade;
+  runContext?: RunContextFacade;
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
@@ -92,6 +110,8 @@ export class Container {
   private _reviews?: ReviewsFacade;
   private _smartDiff?: SmartDiffFacade;
   private _blast?: BlastFacade;
+  private _projectContext?: ContextFacade;
+  private _runContext?: RunContextFacade;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
   private _priceBook?: PriceBook;
@@ -166,6 +186,25 @@ export class Container {
     return this._blast;
   }
 
+  /** Onboarding Tour facade; built per call (the logger is the caller's). */
+  onboarding(logger: OnboardingLogger): OnboardingFacade {
+    return this.overrides.onboarding ?? createOnboardingFacade(this, logger);
+  }
+
+  /** Project Context: repo Markdown docs + agent/skill attachments. */
+  get projectContext(): ContextFacade {
+    if (this.overrides.projectContext) return this.overrides.projectContext;
+    this._projectContext ??= createContextFacade(this);
+    return this._projectContext;
+  }
+
+  /** Project Context resolver used once per agent run by the review executor. */
+  get runContext(): RunContextFacade {
+    if (this.overrides.runContext) return this.overrides.runContext;
+    this._runContext ??= createRunContextFacade(this);
+    return this._runContext;
+  }
+
   /** Import-graph builder (dependency-cruiser). T3 indexer pipeline only. */
   get depgraph(): DepGraph {
     if (this.overrides.depgraph) return this.overrides.depgraph;
@@ -217,6 +256,35 @@ export class Container {
     const provider = await this.buildLlm(id);
     this.llmCache.set(id, provider);
     return provider;
+  }
+
+  /**
+   * Build a fresh (uncached) provider with bounded transport retries and a
+   * request timeout. Throws ConfigError when the provider key is missing.
+   */
+  async llmWithLimits(
+    id: 'openai' | 'anthropic' | 'openrouter',
+    limits: LlmLimits,
+  ): Promise<LLMProvider> {
+    if (this.overrides.llmWithLimits) return this.overrides.llmWithLimits(id, limits);
+    if (id === 'openai') {
+      const key = await this.secrets.get('OPENAI_API_KEY');
+      if (!key) throw new ConfigError('OPENAI_API_KEY is not configured');
+      return new OpenAIProvider(key, limits);
+    }
+    if (id === 'openrouter') {
+      const key = await this.secrets.get('OPENROUTER_API_KEY');
+      if (!key) throw new ConfigError('OPENROUTER_API_KEY is not configured');
+      return new OpenRouterProvider(key, {
+        maxRetries: limits.maxRetries,
+        timeoutMs: limits.timeoutMs,
+        estimateCost: (model, tokensIn, tokensOut) =>
+          this.priceBook.estimate(model, tokensIn, tokensOut),
+      });
+    }
+    const key = await this.secrets.get('ANTHROPIC_API_KEY');
+    if (!key) throw new ConfigError('ANTHROPIC_API_KEY is not configured');
+    return new AnthropicProvider(key, limits);
   }
 
   private async buildLlm(id: 'openai' | 'anthropic' | 'openrouter'): Promise<LLMProvider> {

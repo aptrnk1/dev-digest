@@ -8,6 +8,7 @@ import { EmptyState, Tabs } from "@devdigest/ui";
 import type { Agent } from "@devdigest/shared";
 import { ConfigTab } from "./_components/ConfigTab";
 import { SkillsTab } from "./_components/SkillsTab";
+import { ContextTab } from "./_components/ContextTab";
 import { TABS } from "./constants";
 import { s } from "./styles";
 
@@ -24,6 +25,9 @@ export function AgentEditor({ agent, tab, onTab }: { agent: Agent; tab: string; 
         {tab === "skills" ? (
           // key: fresh local rows per agent — never save one agent's rows onto another.
           <SkillsTab key={agent.id} agent={agent} />
+        ) : tab === "context" ? (
+          // ContextTab keys its panel on (agent, repo) so rows never carry over.
+          <ContextTab agent={agent} />
         ) : mount ? (
           <EmptyState icon="Layers" title={t(`editor.tabs.${tab}`)} body={t("mount.body", { owner: mount })} />
         ) : (

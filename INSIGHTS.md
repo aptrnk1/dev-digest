@@ -4,8 +4,10 @@
      Entry: - YYYY-MM-DD · <ALWAYS/NEVER/do X> — <why> (<path:line | command>) -->
 
 ## What Works
+- 2026-10-24 · When a spec fixes a list "exactly" (рівно), pin it with a unit test in the task that owns the constant — implementers otherwise add "helpful" extras unnoticed (AC56 manifest/lock lists drifted; server/test/onboarding-domain.test.ts)
 
 ## What Doesn't Work
+- 2026-10-24 · NEVER treat plan-verifier DONE on UI-state or budget ACs as final — in Onboarding Tour it passed AC25/AC35/AC76/AC78, and /code-review high reading whole files later found each deviating from the AC text; run one whole-file review before the fix loop, not only delta reviews (specs/plans/reports/2026-10-24-onboarding-tour/review-3.md)
 
 ## Codebase Patterns
 
@@ -14,6 +16,7 @@
 - 2026-10-18 · NEVER match a Claude Code PreToolUse Bash hook on a plain substring of `tool_input.command` — `echo`, `grep`, heredocs and JSON strings that merely mention `gh pr create` get blocked too (and the whole command with them). Match only a real invocation at a shell-segment start (`^`, `;`, `&&`, `|`, `(`, `$(`, newline, optional `VAR=x` prefixes) (.claude/skills/pr-self-review/scripts/gate.mjs)
 
 ## Recurring Errors & Fixes
+- 2026-10-24 · A resumed worktree implementer told to fix "in the main checkout" may be sandbox-blocked from writing outside its worktree and leave the edits there (T10 fix round) — confirm the main files equal the worktree's HEAD (`git -C <wt> show HEAD:<f> | diff - <f>`), then copy back, or dispatch a fresh implementer in the main checkout (.claude/skills/run-plan/references/review-fix.md)
 
 ## Session Notes
 

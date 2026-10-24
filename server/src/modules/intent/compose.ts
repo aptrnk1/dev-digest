@@ -33,6 +33,7 @@ export function createIntentFacade(c: Container, logger?: Logger): IntentFacade 
   const service = createIntentService(c, logger);
   return {
     ensure: (workspaceId, prId, opts) => service.ensure(workspaceId, prId, opts),
+    get: (workspaceId, prId) => service.get(workspaceId, prId),
     renderForPrompt: renderIntentForPrompt,
   };
 }

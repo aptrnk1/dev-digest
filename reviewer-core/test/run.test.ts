@@ -152,4 +152,28 @@ describe('reviewPullRequest (engine)', () => {
     const without = await reviewPullRequest({ systemPrompt: 's', model: 'gpt-4.1', diff, llm });
     expect(without.assembly.intent ?? null).toBeNull();
   });
+
+  it('every map-reduce call carries the Project context block', async () => {
+    const users: string[] = [];
+    const llm = new MockLLMProvider('openai', { structured: fixture });
+    const orig = llm.completeStructured.bind(llm);
+    llm.completeStructured = (async (req: { messages: { role: string; content: string }[] }) => {
+      users.push(req.messages.find((m) => m.role === 'user')!.content);
+      return orig(req as never);
+    }) as never;
+    const diff = await new MockGitClient().diff();
+    await reviewPullRequest({
+      systemPrompt: 's',
+      model: 'm',
+      diff,
+      llm,
+      strategy: 'map-reduce',
+      specs: [{ path: 'docs/a.md', content: 'DOC-A' }],
+    });
+    expect(users.length).toBeGreaterThan(0);
+    for (const u of users) {
+      expect(u).toContain('## Project context');
+      expect(u).toContain('<untrusted source="spec:docs/a.md">');
+    }
+  });
 });

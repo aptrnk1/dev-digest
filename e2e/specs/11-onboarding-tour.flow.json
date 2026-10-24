@@ -1,0 +1,372 @@
+{
+  "name": "Onboarding Tour page renders the seeded tour",
+  "description": "L05. From the PR list, opens Onboarding Tour in the sidebar (repo-scoped route), confirms the header, the 'On this page' nav, deep link, collapsible cards, seeded content, the GitHub Open link at the seed commit, copy / share toasts and the disabled Regenerate (the seed repo has no clone). Read-only: nothing is generated, no LLM. Clipboard is stubbed in-page.",
+  "steps": [
+    {
+      "cmd": [
+        "open",
+        "{BASE}/"
+      ],
+      "label": "load the app root"
+    },
+    {
+      "cmd": [
+        "wait",
+        "--url",
+        "/pulls"
+      ],
+      "label": "root redirects to the demo repo's PRs"
+    },
+    {
+      "cmd": [
+        "find",
+        "text",
+        "Onboarding Tour",
+        "click"
+      ],
+      "label": "open Onboarding Tour from the sidebar"
+    },
+    {
+      "cmd": [
+        "wait",
+        "--url",
+        "/tour"
+      ],
+      "label": "repo-scoped tour route reached"
+    },
+    {
+      "cmd": [
+        "wait",
+        "--load",
+        "networkidle"
+      ],
+      "label": "tour fetch settles"
+    },
+    {
+      "cmd": [
+        "wait",
+        "--text",
+        "Onboarding for"
+      ],
+      "label": "page title"
+    },
+    {
+      "cmd": [
+        "wait",
+        "--text",
+        "Generated from index of 12,450 files"
+      ],
+      "label": "indexed-files subtitle"
+    },
+    {
+      "cmd": [
+        "wait",
+        "--text",
+        "last refreshed"
+      ],
+      "label": "last-refreshed subtitle"
+    },
+    {
+      "cmd": [
+        "eval",
+        "document.querySelectorAll('nav[aria-label=\"On this page\"] a').length === 5"
+      ],
+      "label": "five 'On this page' items",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    },
+    {
+      "cmd": [
+        "eval",
+        "document.querySelectorAll('section[id]').length === 5"
+      ],
+      "label": "five section cards",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    },
+    {
+      "cmd": [
+        "eval",
+        "!document.body.innerText.includes('Index is partial')"
+      ],
+      "label": "no partial-index banner for a full index",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    },
+    {
+      "cmd": [
+        "find",
+        "role",
+        "link",
+        "click",
+        "--name",
+        "First tasks"
+      ],
+      "label": "click 'First tasks' in the page nav"
+    },
+    {
+      "cmd": [
+        "wait",
+        "--url",
+        "#first-tasks"
+      ],
+      "label": "URL hash follows the clicked item"
+    },
+    {
+      "cmd": [
+        "eval",
+        "document.querySelector('nav[aria-label=\"On this page\"] a[aria-current=location]').textContent === 'First tasks'"
+      ],
+      "label": "'First tasks' is the active nav item",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    },
+    {
+      "cmd": [
+        "eval",
+        "location.hash = '#reading-path'; true"
+      ],
+      "label": "set a deep-link hash",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    },
+    {
+      "cmd": [
+        "eval",
+        "location.reload()"
+      ],
+      "label": "reload on the deep link"
+    },
+    {
+      "cmd": [
+        "wait",
+        "--load",
+        "networkidle"
+      ],
+      "label": "deep-linked tour settles"
+    },
+    {
+      "cmd": [
+        "wait",
+        "--text",
+        "Guided reading path"
+      ],
+      "label": "deep-linked section rendered"
+    },
+    {
+      "cmd": [
+        "eval",
+        "document.querySelector('nav[aria-label=\"On this page\"] a[aria-current=location]').textContent === 'Guided reading path'"
+      ],
+      "label": "deep link activates 'Guided reading path'",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    },
+    {
+      "cmd": [
+        "wait",
+        "--text",
+        "Node + TypeScript service fronting Stripe"
+      ],
+      "label": "architecture summary"
+    },
+    {
+      "cmd": [
+        "eval",
+        "document.querySelectorAll('#critical-paths li').length === 4"
+      ],
+      "label": "four critical paths",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    },
+    {
+      "cmd": [
+        "wait",
+        "--text",
+        "src/middleware/auth.ts"
+      ],
+      "label": "critical path listed"
+    },
+    {
+      "cmd": [
+        "eval",
+        "document.querySelectorAll('#run-locally li').length === 4"
+      ],
+      "label": "four run commands",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    },
+    {
+      "cmd": [
+        "wait",
+        "--text",
+        "docker compose up -d postgres redis"
+      ],
+      "label": "run command listed"
+    },
+    {
+      "cmd": [
+        "eval",
+        "document.querySelectorAll('#reading-path li').length === 3"
+      ],
+      "label": "three reading-path steps",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    },
+    {
+      "cmd": [
+        "eval",
+        "document.querySelectorAll('#first-tasks > div > div > ul > li, #first-tasks ul > li').length === 3"
+      ],
+      "label": "three first tasks",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    },
+    {
+      "cmd": [
+        "wait",
+        "--text",
+        "Cover expired tokens in auth middleware"
+      ],
+      "label": "first task listed"
+    },
+    {
+      "cmd": [
+        "find",
+        "role",
+        "button",
+        "click",
+        "--name",
+        "Toggle section: Architecture overview"
+      ],
+      "label": "collapse the Architecture card"
+    },
+    {
+      "cmd": [
+        "eval",
+        "document.querySelector('button[aria-label=\"Toggle section: Architecture overview\"]').getAttribute('aria-expanded') === 'false'"
+      ],
+      "label": "aria-expanded is false when collapsed",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    },
+    {
+      "cmd": [
+        "eval",
+        "!document.body.innerText.includes('fronting Stripe')"
+      ],
+      "label": "collapsed card hides its body",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    },
+    {
+      "cmd": [
+        "find",
+        "role",
+        "button",
+        "click",
+        "--name",
+        "Toggle section: Architecture overview"
+      ],
+      "label": "expand the Architecture card"
+    },
+    {
+      "cmd": [
+        "eval",
+        "document.querySelector('button[aria-label=\"Toggle section: Architecture overview\"]').getAttribute('aria-expanded') === 'true'"
+      ],
+      "label": "aria-expanded is true when expanded",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    },
+    {
+      "cmd": [
+        "wait",
+        "--text",
+        "fronting Stripe"
+      ],
+      "label": "body is back after expanding"
+    },
+    {
+      "cmd": [
+        "eval",
+        "document.querySelector('a[aria-label=\"Open src/server.ts\"]').href"
+      ],
+      "label": "Open link points at GitHub at the seeded commit",
+      "assert": {
+        "stdoutIncludes": "github.com/acme/payments-api/blob/a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f70819/src/server.ts"
+      }
+    },
+    {
+      "cmd": [
+        "eval",
+        "Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true }); true"
+      ],
+      "label": "stub the clipboard so copy is deterministic headless",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    },
+    {
+      "cmd": [
+        "find",
+        "role",
+        "button",
+        "click",
+        "--name",
+        "Copy command 1"
+      ],
+      "label": "copy the first run command"
+    },
+    {
+      "cmd": [
+        "wait",
+        "--text",
+        "Copied"
+      ],
+      "label": "copy toast"
+    },
+    {
+      "cmd": [
+        "find",
+        "role",
+        "button",
+        "click",
+        "--name",
+        "Share link"
+      ],
+      "label": "click Share link"
+    },
+    {
+      "cmd": [
+        "wait",
+        "--text",
+        "Link copied"
+      ],
+      "label": "share-link toast"
+    },
+    {
+      "cmd": [
+        "eval",
+        "document.evaluate(\"//button[normalize-space()='Regenerate']\", document, null, 9, null).singleNodeValue.disabled"
+      ],
+      "label": "Regenerate is disabled for the uncloned seed repo",
+      "assert": {
+        "stdoutIncludes": "true"
+      }
+    }
+  ]
+}

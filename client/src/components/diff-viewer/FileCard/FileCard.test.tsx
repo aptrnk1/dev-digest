@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { FindingRecord, PrFile } from "@devdigest/shared";
@@ -108,5 +108,17 @@ describe("FileCard findings overlay", () => {
     const commenting = { comments: [], canComment: false, showComments: false, posting: false, onSubmit: async () => ({}) as never };
     render(wrap(<FileCard file={FILE} commenting={commenting} findings={[finding("a")]} maxSeverity="CRITICAL" renderFinding={renderFinding} />));
     expect(screen.getByTestId("fc-a")).toBeInTheDocument();
+  });
+});
+
+describe("FileCard deep-link target", () => {
+  it("opens a large file, scrolls and focuses the header", () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    const big: PrFile = { ...FILE, additions: AUTO_EXPAND_MAX_LINES + 50 };
+    render(wrap(<FileCard file={big} target />));
+    expect(screen.getByText("const key = 1;")).toBeInTheDocument();
+    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(screen.getByText("src/a.ts").parentElement);
   });
 });
