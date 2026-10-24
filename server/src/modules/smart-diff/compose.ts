@@ -10,5 +10,8 @@ export function createSmartDiffFacade(c: Container): SmartDiffFacade {
     reviews: c.reviews,
     ranks: c.repoIntel,
   });
-  return { get: (workspaceId, prId) => service.get(workspaceId, prId) };
+  return {
+    get: (workspaceId, prId) => service.get(workspaceId, prId),
+    facts: (workspaceId, prId) => service.facts(workspaceId, prId),
+  };
 }
