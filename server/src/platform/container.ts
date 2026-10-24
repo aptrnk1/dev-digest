@@ -47,6 +47,12 @@ import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.j
  * Tests construct a container with `overrides` to inject mock adapters; the
  * Services depend on these interfaces, not the concrete classes.
  */
+/** Transport limits for a one-off provider (see `Container.llmWithLimits`). */
+export interface LlmLimits {
+  maxRetries: number;
+  timeoutMs: number;
+}
+
 export interface ContainerOverrides {
   secrets?: SecretsProvider;
   auth?: AuthProvider;
@@ -56,6 +62,8 @@ export interface ContainerOverrides {
   embedder?: Embedder;
   /** Pre-built providers by id (skip key lookup). */
   llm?: Partial<Record<'openai' | 'anthropic' | 'openrouter', LLMProvider>>;
+  /** Replaces `llmWithLimits` (tests) — skips key lookup. */
+  llmWithLimits?: (id: 'openai' | 'anthropic' | 'openrouter', limits: LlmLimits) => LLMProvider;
   /** repo-intel facade (T1.1+) — tests inject mock RepoIntel implementations. */
   repoIntel?: RepoIntel;
   /** Intent Layer facade — tests inject a stub instead of the LLM-backed one. */
@@ -238,6 +246,35 @@ export class Container {
     const provider = await this.buildLlm(id);
     this.llmCache.set(id, provider);
     return provider;
+  }
+
+  /**
+   * Build a fresh (uncached) provider with bounded transport retries and a
+   * request timeout. Throws ConfigError when the provider key is missing.
+   */
+  async llmWithLimits(
+    id: 'openai' | 'anthropic' | 'openrouter',
+    limits: LlmLimits,
+  ): Promise<LLMProvider> {
+    if (this.overrides.llmWithLimits) return this.overrides.llmWithLimits(id, limits);
+    if (id === 'openai') {
+      const key = await this.secrets.get('OPENAI_API_KEY');
+      if (!key) throw new ConfigError('OPENAI_API_KEY is not configured');
+      return new OpenAIProvider(key, limits);
+    }
+    if (id === 'openrouter') {
+      const key = await this.secrets.get('OPENROUTER_API_KEY');
+      if (!key) throw new ConfigError('OPENROUTER_API_KEY is not configured');
+      return new OpenRouterProvider(key, {
+        maxRetries: limits.maxRetries,
+        timeoutMs: limits.timeoutMs,
+        estimateCost: (model, tokensIn, tokensOut) =>
+          this.priceBook.estimate(model, tokensIn, tokensOut),
+      });
+    }
+    const key = await this.secrets.get('ANTHROPIC_API_KEY');
+    if (!key) throw new ConfigError('ANTHROPIC_API_KEY is not configured');
+    return new AnthropicProvider(key, limits);
   }
 
   private async buildLlm(id: 'openai' | 'anthropic' | 'openrouter'): Promise<LLMProvider> {

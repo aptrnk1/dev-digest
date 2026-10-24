@@ -521,11 +521,11 @@ go here:
 ## Progress
 | Task | Status | Notes |
 |------|--------|-------|
-| T1 | todo | |
-| T2 | todo | |
-| T3 | todo | |
-| T4 | todo | |
-| T5 | todo | |
+| T1 | done | contracts in both copies; old Onboarding stubs removed |
+| T2 | done | migration 0016_wise_doctor_spectrum |
+| T3 | done | AC60 fetch counter covers openai+anthropic only (plan Risks) |
+| T4 | done (concerns) | MANIFEST_FILES/LOCK_FILES lists invented (spec silent); isSafeRelativePath stricter than AC — re-check P5 |
+| T5 | done (concerns) | extra i18n keys; 409 in_progress resolves with cached/placeholder job — re-check P5 |
 | T6 | todo | |
 | T7 | todo | |
 | T8 | todo | |

@@ -126,8 +126,13 @@ export const onboarding = pgTable('onboarding', {
   repoId: uuid('repo_id')
     .primaryKey()
     .references(() => repos.id, { onDelete: 'cascade' }),
-  json: jsonb('json').notNull(),
-  generatedAt: timestamp('generated_at', { withTimezone: true }).defaultNow().notNull(),
+  json: jsonb('json'),
+  generatedAt: timestamp('generated_at', { withTimezone: true }),
+  status: text('status', { enum: ['running', 'done', 'failed'] }).notNull().default('running'),
+  error: text('error'),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  runId: uuid('run_id').notNull().defaultRandom(),
 });
 
 /**

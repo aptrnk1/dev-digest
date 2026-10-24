@@ -26,25 +26,70 @@ export const Conformance = z.object({
 export type Conformance = z.infer<typeof Conformance>;
 
 // ---- Onboarding ----
-export const OnboardingLink = z.object({
-  label: z.string(),
-  path: z.string(),
-});
-export type OnboardingLink = z.infer<typeof OnboardingLink>;
+export const OnboardingIndexStatus = z.enum(['full', 'partial', 'degraded', 'failed', 'none']);
+export type OnboardingIndexStatus = z.infer<typeof OnboardingIndexStatus>;
 
-export const OnboardingSection = z.object({
-  kind: z.string(),
-  title: z.string(),
-  body: z.string(), // markdown
-  diagram: z.string().nullish(), // mermaid
-  links: z.array(OnboardingLink),
-});
-export type OnboardingSection = z.infer<typeof OnboardingSection>;
+export const OnboardingNodeKind = z.enum(['external', 'entry', 'module', 'middleware', 'datastore']);
+export type OnboardingNodeKind = z.infer<typeof OnboardingNodeKind>;
 
-export const Onboarding = z.object({
-  sections: z.array(OnboardingSection),
+export const OnboardingDiagramNode = z.object({
+  id: z.string(),
+  label: z.string().max(40),
+  kind: OnboardingNodeKind,
+  path: z.string().nullable(),
 });
-export type Onboarding = z.infer<typeof Onboarding>;
+export type OnboardingDiagramNode = z.infer<typeof OnboardingDiagramNode>;
+
+export const OnboardingDiagramEdge = z.object({
+  from: z.string(),
+  to: z.string(),
+});
+export type OnboardingDiagramEdge = z.infer<typeof OnboardingDiagramEdge>;
+
+export const OnboardingTour = z.object({
+  commit_sha: z.string().regex(/^[0-9a-f]{40}$/),
+  generated_at: z.string(),
+  files_indexed: z.number().int().min(0),
+  index_status: OnboardingIndexStatus,
+  architecture: z.object({
+    summary: z.string().max(800),
+    diagram: z.object({
+      nodes: z.array(OnboardingDiagramNode).max(12),
+      edges: z.array(OnboardingDiagramEdge).max(20),
+    }),
+  }),
+  critical_paths: z.array(z.object({ path: z.string(), description: z.string().max(140) })).max(8),
+  run_steps: z.array(z.object({ command: z.string().max(500), source_path: z.string() })).max(10),
+  reading_path: z.array(z.object({ path: z.string(), why: z.string().max(140) })).max(8),
+  first_tasks: z
+    .array(
+      z.object({
+        title: z.string().max(80),
+        description: z.string().max(140),
+        size: z.enum(['S', 'M']),
+        files: z.array(z.string()).min(1).max(3),
+      }),
+    )
+    .max(5),
+});
+export type OnboardingTour = z.infer<typeof OnboardingTour>;
+
+export const OnboardingJob = z.object({
+  status: z.enum(['running', 'done', 'failed']),
+  error: z.string().max(200).nullable(),
+  started_at: z.string(),
+  finished_at: z.string().nullable(),
+});
+export type OnboardingJob = z.infer<typeof OnboardingJob>;
+
+export const OnboardingTourResponse = z.object({
+  job: OnboardingJob.nullable(),
+  tour: OnboardingTour.nullable(),
+});
+export type OnboardingTourResponse = z.infer<typeof OnboardingTourResponse>;
+
+export const OnboardingGenerateResponse = z.object({ job: OnboardingJob });
+export type OnboardingGenerateResponse = z.infer<typeof OnboardingGenerateResponse>;
 
 // ---- Eval ----
 export const EvalPerTrace = z.object({

@@ -9,7 +9,9 @@ import {
   PrHistory,
   SmartDiff,
   Conformance,
-  Onboarding,
+  OnboardingTour,
+  OnboardingJob,
+  OnboardingTourResponse,
   EvalRun,
   MemoryItem,
   RunTrace,
@@ -352,18 +354,71 @@ describe('AI contracts parse fixtures', () => {
     ).toThrow();
   });
 
-  it('Conformance / Onboarding / EvalRun / MemoryItem', () => {
+  describe('Onboarding tour', () => {
+    const sha = 'a'.repeat(40);
+    const tour = () => ({
+      commit_sha: sha,
+      generated_at: '2026-10-24T10:00:00.000Z',
+      files_indexed: 12,
+      index_status: 'full',
+      architecture: {
+        summary: 'Summary',
+        diagram: {
+          nodes: [{ id: 'a', label: 'API', kind: 'entry', path: 'src/index.ts' }],
+          edges: [{ from: 'a', to: 'a' }],
+        },
+      },
+      critical_paths: [{ path: 'src/a.ts', description: 'd' }],
+      run_steps: [{ command: 'pnpm dev', source_path: 'package.json' }],
+      reading_path: [{ path: 'README.md', why: 'w' }],
+      first_tasks: [{ title: 't', description: 'd', size: 'S', files: ['src/a.ts'] }],
+    });
+
+    it('accepts a valid tour', () => {
+      expect(() => OnboardingTour.parse(tour())).not.toThrow();
+    });
+
+    it('rejects 9 critical_paths', () => {
+      const t = tour();
+      t.critical_paths = Array.from({ length: 9 }, () => ({ path: 'p', description: 'd' }));
+      expect(() => OnboardingTour.parse(t)).toThrow();
+    });
+
+    it('rejects 13 diagram nodes', () => {
+      const t = tour();
+      t.architecture.diagram.nodes = Array.from({ length: 13 }, (_, i) => ({
+        id: `n${i}`,
+        label: 'l',
+        kind: 'module',
+        path: null,
+      }));
+      expect(() => OnboardingTour.parse(t)).toThrow();
+    });
+
+    it('rejects a first task with 4 files', () => {
+      const t = tour();
+      t.first_tasks[0]!.files = ['a', 'b', 'c', 'd'];
+      expect(() => OnboardingTour.parse(t)).toThrow();
+    });
+
+    it('rejects a job error longer than 200 chars', () => {
+      const job = { status: 'failed', error: 'x'.repeat(201), started_at: 's', finished_at: 'f' };
+      expect(() => OnboardingJob.parse(job)).toThrow();
+      expect(() => OnboardingJob.parse({ ...job, error: 'x'.repeat(200) })).not.toThrow();
+    });
+
+    it('accepts job: null, tour: null', () => {
+      expect(() => OnboardingTourResponse.parse({ job: null, tour: null })).not.toThrow();
+    });
+  });
+
+  it('Conformance / EvalRun / MemoryItem', () => {
     expect(() =>
       Conformance.parse({
         spec_id: 's1',
         spec_title: 'Spec',
         items: [{ requirement: 'r', status: 'implemented' }],
         completeness_pct: 80,
-      }),
-    ).not.toThrow();
-    expect(() =>
-      Onboarding.parse({
-        sections: [{ kind: 'architecture', title: 'T', body: 'b', links: [] }],
       }),
     ).not.toThrow();
     expect(() =>
