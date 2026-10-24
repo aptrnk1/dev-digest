@@ -354,8 +354,8 @@ go here:
 ## Progress
 | Task | Status | Notes |
 |------|--------|-------|
-| T1 | todo | |
-| T2 | todo | |
+| T1 | done | BlastDegradedReason moved to brief.ts; verify 3/3 |
+| T2 | done | inline; IntentCard tests green |
 | T3 | todo | |
 | T4 | todo | |
 | T5 | todo | |

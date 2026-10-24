@@ -19,6 +19,9 @@ import {
   Repo,
   PrDetail,
   PrIntentState,
+  PrBrief,
+  PrBriefState,
+  BlastDegradedReason,
   PromptAssembly,
   SpecFile,
   SpecFileList,
@@ -578,5 +581,51 @@ describe('Intent layer contracts', () => {
       expect(ContextAttachmentsInput.safeParse({ paths: paths(51) }).success).toBe(false);
       expect(ContextAttachmentsInput.safeParse({ paths: [''] }).success).toBe(false);
     });
+  });
+});
+
+describe('PR Brief contracts', () => {
+  const base = {
+    summary: 'Adds retry to the sync job.',
+    intent: null,
+    intent_stale: false,
+    blast: null,
+    risks: { risks: [{ kind: 'data', title: 't', explanation: 'e', severity: 'high', file_refs: ['a.ts'] }] },
+    review_focus: [{ file: 'a.ts', line: 12, reason: 'retry loop' }],
+    missing_inputs: ['intent', 'blast'],
+    head_sha: 'abc123',
+    generated_at: '2026-10-24T10:00:00.000Z',
+    model: 'claude-x',
+    cost_usd: null,
+  };
+
+  it('parses a full brief and defaults history', () => {
+    const parsed = PrBrief.parse(base);
+    expect(parsed.history).toEqual({ history: [] });
+    expect(parsed.intent).toBeNull();
+    expect(parsed.blast).toBeNull();
+  });
+
+  it('parses a brief with blast', () => {
+    const parsed = PrBrief.parse({
+      ...base,
+      blast: { summary: 's', caller_files: ['b.ts'], degraded_reason: null },
+    });
+    expect(parsed.blast?.caller_files).toEqual(['b.ts']);
+  });
+
+  it('rejects unknown missing_inputs and bad severity', () => {
+    expect(() => PrBrief.parse({ ...base, missing_inputs: ['nope'] })).toThrow();
+    expect(() =>
+      PrBrief.parse({ ...base, risks: { risks: [{ ...base.risks.risks[0], severity: 'critical' }] } }),
+    ).toThrow();
+  });
+
+  it('parses PrBriefState', () => {
+    expect(PrBriefState.parse({ brief: null, stale: false })).toEqual({ brief: null, stale: false });
+  });
+
+  it('keeps BlastDegradedReason on the barrel', () => {
+    expect(BlastDegradedReason.parse('no_data')).toBe('no_data');
   });
 });
