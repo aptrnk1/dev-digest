@@ -33,6 +33,15 @@ export interface RunContextInput {
   base: string;
 }
 
+/** Repo-wide resolution (no single agent): specs of every enabled agent. */
+export interface RepoContextInput {
+  workspaceId: string;
+  repoId: string;
+  repo: RepoRef;
+  clonePath: string | null;
+  base: string;
+}
+
 export interface ContextLog {
   info(msg: string): void;
 }
@@ -44,6 +53,7 @@ export interface RunProjectContext {
 
 export interface RunContextFacade {
   resolveForRun(input: RunContextInput, log: ContextLog): Promise<RunProjectContext>;
+  resolveForRepo(input: RepoContextInput, log: ContextLog): Promise<RunProjectContext>;
 }
 
 /** Enabled skills (enabled link) attached to the agent, in `agent_skills.order`. */

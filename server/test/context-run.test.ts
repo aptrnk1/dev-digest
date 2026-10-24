@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderSpecsBlock } from '@devdigest/reviewer-core';
 import { RunContextService } from '../src/modules/context/run-context.service.js';
-import type { RunAttachments, RunContextInput } from '../src/modules/context/types.js';
+import type { RepoContextInput, RunAttachments, RunContextInput } from '../src/modules/context/types.js';
 
 const repo = { owner: 'o', name: 'r' };
 const input: RunContextInput = {
@@ -140,5 +140,87 @@ describe('RunContextService.resolveForRun', () => {
     await s.svc.resolveForRun(input, s.log);
     expect(s.loadForRun).toHaveBeenCalledTimes(1);
     expect(s.loadForRun).toHaveBeenCalledWith('a1', 'r1');
+  });
+});
+
+const repoInput: RepoContextInput = {
+  workspaceId: 'w1',
+  repoId: 'r1',
+  repo,
+  clonePath: '/clone',
+  base: 'main',
+};
+
+function setupRepo(opts: {
+  agents?: string[];
+  attached?: Record<string, RunAttachments>;
+  files?: Record<string, string | null>;
+  isClone?: boolean;
+  hasRef?: boolean;
+}) {
+  const logs: string[] = [];
+  const listEnabledAgentIds = vi.fn(async (_ws: string) => opts.agents ?? []);
+  const loadForRun = vi.fn(
+    async (agentId: string, _repoId: string) => opts.attached?.[agentId] ?? { own: [], skills: [] },
+  );
+  const showFile = vi.fn(async (_r: unknown, _ref: string, path: string) => opts.files?.[path] ?? null);
+  const svc = new RunContextService({
+    store: { loadForRun, listEnabledAgentIds },
+    docs: { isClone: async () => opts.isClone ?? true },
+    git: { hasRef: async () => opts.hasRef ?? true, showFile },
+    tokenizer: chars,
+  });
+  return { svc, logs, log: { info: (m: string) => logs.push(m) }, loadForRun, listEnabledAgentIds, showFile };
+}
+
+describe('RunContextService.resolveForRepo', () => {
+  it('unions enabled agents in order, own then skills, first occurrence wins (AC42)', async () => {
+    const s = setupRepo({
+      agents: ['a1', 'a2'],
+      attached: {
+        a1: { own: ['a.md'], skills: [{ skillId: 's', skillName: 'S', paths: ['b.md'] }] },
+        a2: { own: ['b.md', 'c.md'], skills: [] },
+      },
+      files: { 'a.md': 'AA', 'b.md': 'BB', 'c.md': 'CC' },
+    });
+    const out = await s.svc.resolveForRepo(repoInput, s.log);
+    expect(out.specsRead).toEqual(['a.md', 'b.md', 'c.md']);
+    expect(s.listEnabledAgentIds).toHaveBeenCalledWith('w1');
+    expect(s.loadForRun.mock.calls.map((c) => c[0])).toEqual(['a1', 'a2']);
+    expect(s.showFile.mock.calls.map((c) => c[1])).toEqual(['origin/main', 'origin/main', 'origin/main']);
+    expect(s.logs).toHaveLength(1);
+    expect(s.logs[0]).toMatch(/^Project context: 3 doc\(s\), \+\d+ tokens — a\.md, b\.md, c\.md$/);
+  });
+
+  it('applies the shared budget and skip rules across agents', async () => {
+    const s = setupRepo({
+      agents: ['a1', 'a2'],
+      attached: { a1: { own: ['a.md', 'gone.md'], skills: [] }, a2: { own: ['b.md', 'c.md'], skills: [] } },
+      files: { 'a.md': 'a'.repeat(5000), 'b.md': 'b'.repeat(4000), 'c.md': 'c'.repeat(2000) },
+    });
+    const out = await s.svc.resolveForRepo(repoInput, s.log);
+    expect(out.specsRead).toEqual(['a.md', 'c.md']);
+    expect(s.logs).toContain('Project context: skipped gone.md (missing)');
+    expect(s.logs).toContain('Project context: skipped b.md (budget)');
+  });
+
+  it('no enabled agents / no attachments → empty', async () => {
+    const none = setupRepo({});
+    expect(await none.svc.resolveForRepo(repoInput, none.log)).toEqual({ specs: [], specsRead: [] });
+    expect(none.logs).toEqual(['Project context: none attached']);
+    const empty = setupRepo({ agents: ['a1'] });
+    expect(await empty.svc.resolveForRepo(repoInput, empty.log)).toEqual({ specs: [], specsRead: [] });
+  });
+
+  it('not cloned or base ref missing → empty', async () => {
+    const attached = { a1: { own: ['a.md'], skills: [] } };
+    const a = setupRepo({ agents: ['a1'], attached, files: { 'a.md': 'x' } });
+    expect(await a.svc.resolveForRepo({ ...repoInput, clonePath: null }, a.log)).toEqual({
+      specs: [],
+      specsRead: [],
+    });
+    const b = setupRepo({ agents: ['a1'], attached, files: { 'a.md': 'x' }, hasRef: false });
+    expect(await b.svc.resolveForRepo(repoInput, b.log)).toEqual({ specs: [], specsRead: [] });
+    expect(b.showFile).not.toHaveBeenCalled();
   });
 });
