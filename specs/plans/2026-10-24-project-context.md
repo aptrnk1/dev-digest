@@ -341,8 +341,8 @@ go here:
 | T9 | done | merged 06af8fc; no red run for ContextView.test; skeleton via data-testid (no loading string) |
 | T10 | done | merged c987f2b; panel needs ToastProvider; header+Filter share top row; Drawer close label hardcoded in kit |
 | T11 | done | haiku, main checkout; no red-evidence reported |
-| T12 | todo | |
-| T13 | todo | |
-| T14 | todo | |
-| T15 | todo | |
+| T12 | done | merged 51307fd; AC31 unit via TAB_KEYS, not page search-params |
+| T13 | done | merged 1a67fb1; tab test mocks ContextDocsPanel + useActiveRepo |
+| T14 | done | merged 59989f0; worktree arch fail = node_modules symlink artifact (PASS in main); reviews.it 'classifier failure' flaked once |
+| T15 | done | merged 03ef1fd; it 9 pass/0 skipped; no red evidence (T7 already merged); repo cascade via direct db delete |
 | T16 | todo | |
