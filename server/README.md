@@ -79,6 +79,7 @@ flowchart TB
     smartDiff["smart-diff<br/>GET /pulls/:id/smart-diff"]
     blast["blast<br/>GET /pulls/:id/blast-radius"]
     onboarding["onboarding<br/>GET /repos/:id/onboarding · POST /repos/:id/onboarding/generate"]
+    brief["brief<br/>GET/POST /pulls/:id/brief"]
     context["context (Project Context)<br/>GET /repos/:id/context(/file|/usage)<br/>GET/PUT /agents/:id/context · /skills/:id/context"]
   end
   subgraph Intel["Repo intelligence"]
@@ -168,6 +169,19 @@ What the reviewer actually sends to the model is assembled in
   description is `low`/`inferred` whatever the model says. Reviews reach it via
   `container.intent` (non-fatal pre-work); the intent cost stays in `pr_intent`,
   not in `agent_runs.cost_usd`. Routes: `GET/POST /pulls/:id/intent`.
+- **PR Risk Brief (`modules/brief`).** `BriefService.generate` reads only
+  facades — `container.intent.get` (stored, never derives), `container.blast.get`,
+  `container.smartDiff.facts` (roles + finding anchors) and
+  `container.runContext.resolveForRepo` (specs of all enabled agents; a throw
+  means "no specs") — and builds FACTS (hunk line numbers, no diff text). ONE
+  `pr_brief` structured call (Feature Models → `risk_brief`, provider with
+  `maxRetries: 0`, 45 s per attempt, ≤ 2 attempts in the service) is checked by
+  `sanitizeDraft` (focus inside new-side ranges, refs inside changed ∪ caller
+  files, ≤ 6 risks / 6 focus, code-point truncation) and upserted into
+  `pr_brief.json`. `GET` never calls the LLM and flags `stale` when `head_sha`
+  moved. An in-memory per-PR lock gives 409 `brief_in_progress`. Routes:
+  `GET/POST /pulls/:id/brief` · 404 `pr_not_found` · 422 `llm_not_configured` ·
+  502 `brief_failed`.
 - **Project Context docs (`modules/context`).** Docs attached per agent and per
   skill (own first, then the enabled skills; first path wins) are resolved by
   `container.runContext.resolveForRun` once per agent run. They are read from
