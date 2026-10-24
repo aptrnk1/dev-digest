@@ -27,6 +27,7 @@ flowchart TD
   ONB["/onboarding<br/>add repo"] -->|"POST /repos"| API[("Fastify API")]
   PULLS --> PR["/pulls/:number<br/>review detail<br/>(overview · diff · findings)"]
   CONV["/repos/:repoId/conventions<br/>extract · accept/reject/edit · compose skill"]
+  TOUR["/repos/:repoId/tour<br/>Onboarding Tour: generate · read 5 sections · share link"]
   CTX["/repos/:repoId/context<br/>Project Context: Markdown docs · preview · attach to agents/skills"]
 
   AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config)"]
@@ -36,6 +37,7 @@ flowchart TD
   PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
   AGENTS -->|"/agents · /agents/:id"| API
   CONV -->|"GET /repos/:id/conventions · POST …/extract · …/bulk<br/>PATCH /conventions/:id · POST /skills · PUT /agents/:id/skills"| API
+  TOUR -->|"GET /repos/:id/onboarding (polls while running) · POST …/onboarding/generate"| API
   CTX -->|"GET /repos/:id/context · …/file · …/usage · GET|PUT /agents|skills/:id/context"| API
   SETTINGS -->|"/settings · /providers"| API
 ```
