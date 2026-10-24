@@ -6,11 +6,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type ApiError } from "../api";
 import type { PrBrief, PrBriefState } from "@devdigest/shared";
 
-export function usePrBrief(prId: string | null | undefined) {
+/** `pollMs` re-fetches on an interval (used while another generation runs). */
+export function usePrBrief(prId: string | null | undefined, pollMs: number | false = false) {
   return useQuery<PrBriefState, ApiError>({
     queryKey: ["pr-brief", prId],
     queryFn: () => api.get<PrBriefState>(`/pulls/${prId}/brief`),
     enabled: !!prId,
+    refetchInterval: pollMs,
   });
 }
 

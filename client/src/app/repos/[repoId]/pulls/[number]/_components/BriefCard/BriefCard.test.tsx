@@ -151,6 +151,31 @@ describe("BriefCard", () => {
     expect(screen.getByText(BRIEF.summary)).toBeInTheDocument();
   });
 
+  it("409 refetches the brief, and keeps polling until it changes", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      withBrief();
+      post.mockRejectedValue(new ApiError("x", 409, "brief_in_progress"));
+      ui();
+      await screen.findByText(BRIEF.summary);
+      get.mockResolvedValue({ brief: BRIEF, stale: false });
+      fireEvent.click(screen.getByRole("button", { name: "Regenerate brief" }));
+      expect(await screen.findByText(messages.generateError.inProgress)).toBeInTheDocument();
+      await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+      get.mockResolvedValue({
+        brief: { ...BRIEF, summary: "Fresh summary", generated_at: "2026-10-24T10:05:00.000Z" },
+        stale: false,
+      });
+      await vi.advanceTimersByTimeAsync(5_100);
+      expect(await screen.findByText("Fresh summary")).toBeInTheDocument();
+      const calls = get.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(11_000);
+      expect(get.mock.calls.length).toBe(calls);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("empty-state failure shows the error text under the button", async () => {
     get.mockResolvedValue({ brief: null, stale: false });
     post.mockRejectedValue(new ApiError("x", 422, "llm_not_configured"));

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { RiskSeverity, type ChatMessage } from '@devdigest/shared';
-import { specLabel } from '@devdigest/reviewer-core';
+import { wrapSpec } from '@devdigest/reviewer-core';
 import { wrapUntrusted } from '../../platform/prompt.js';
 import { MAX_DESCRIPTION_CHARS, MAX_PROMPT_TOKENS } from './constants.js';
 import type { BriefFacts, PromptFacts } from './facts.js';
@@ -57,7 +57,7 @@ const REMINDER = [
   'stale intent in the summary.',
 ].join('\n');
 
-function renderFacts(f: PromptFacts): ChatMessage['content'] {
+function renderFacts(f: PromptFacts, missing: BriefFacts['missing'], intentStale: boolean): ChatMessage['content'] {
   const blocks: string[] = [];
   blocks.push(
     wrapUntrusted(
@@ -111,36 +111,43 @@ function renderFacts(f: PromptFacts): ChatMessage['content'] {
       wrapUntrusted('review-findings', f.anchors.map((a) => `${a.severity} ${a.file}:${a.start_line} ${a.title}`).join('\n')),
     );
   }
-  for (const s of f.specs) blocks.push(wrapUntrusted(specLabel(s.path), s.content));
+  for (const s of f.specs) blocks.push(wrapSpec(s));
 
   const meta = [
-    `missing_inputs: ${f.missing.length ? f.missing.join(', ') : 'none'}`,
-    `intent_stale: ${f.intentStale}`,
+    `missing_inputs: ${missing.length ? missing.join(', ') : 'none'}`,
+    `intent_stale: ${intentStale}`,
     'Name every missing input and a stale intent in the summary.',
   ].join('\n');
   return `${blocks.join('\n\n')}\n\n${meta}\n\n${REMINDER}`;
 }
 
-function render(f: BriefFacts, n: number): ChatMessage[] {
+function render(f: BriefFacts, n: number, trimBlast: boolean): ChatMessage[] {
   const files = f.facts.files.slice(0, n);
   const kept = new Set(files.map((x) => x.path));
-  const facts: PromptFacts = { ...f.facts, files, anchors: f.facts.anchors.filter((a) => kept.has(a.file)) };
+  const blast = trimBlast && f.facts.blast ? { ...f.facts.blast, symbols: [], callers: [] } : f.facts.blast;
+  const facts: PromptFacts = { ...f.facts, blast, files, anchors: f.facts.anchors.filter((a) => kept.has(a.file)) };
   return [
     { role: 'system', content: SYSTEM },
-    { role: 'user', content: renderFacts(facts) },
+    { role: 'user', content: renderFacts(facts, f.missing, f.intentStale) },
   ];
 }
 
-/** Largest file prefix whose prompt fits MAX_PROMPT_TOKENS (files are dropped from the end). */
+/**
+ * Fits MAX_PROMPT_TOKENS: first drop blast symbols/callers (changed files matter more), then
+ * files from the end.
+ */
 export function buildBriefMessages(f: BriefFacts, tokens: TokenCounter): ChatMessage[] {
-  const fits = (n: number) => render(f, n).reduce((s, m) => s + tokens.count(String(m.content)), 0) <= MAX_PROMPT_TOKENS;
-  let hi = f.facts.files.length;
-  if (fits(hi)) return render(f, hi);
+  const fits = (n: number, trim: boolean) =>
+    render(f, n, trim).reduce((s, m) => s + tokens.count(String(m.content)), 0) <= MAX_PROMPT_TOKENS;
+  const all = f.facts.files.length;
+  if (fits(all, false)) return render(f, all, false);
+  if (fits(all, true)) return render(f, all, true);
   let lo = 0;
+  let hi = all;
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
-    if (fits(mid)) lo = mid;
+    if (fits(mid, true)) lo = mid;
     else hi = mid - 1;
   }
-  return render(f, lo);
+  return render(f, lo, true);
 }

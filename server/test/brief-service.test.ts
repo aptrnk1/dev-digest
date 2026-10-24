@@ -25,13 +25,14 @@ const ok = (req: StructuredRequest<unknown>, costUsd: number | null = null) => (
 function setup(o: {
   pull?: BriefPull | undefined;
   stored?: unknown;
+  upsert?: (id: string, b: PrBrief) => Promise<void>;
   completeStructured?: (req: StructuredRequest<unknown>) => Promise<unknown>;
   resolveModel?: BriefDeps['resolveModel'];
   specs?: BriefDeps['specs']['resolveForRepo'];
   intent?: BriefDeps['intent']['get'];
 } = {}) {
   const hasPull = 'pull' in o ? o.pull : pull();
-  const upsert = vi.fn(async (_id: string, _b: PrBrief) => {});
+  const upsert = vi.fn(o.upsert ?? (async (_id: string, _b: PrBrief) => {}));
   const store: BriefStore = {
     loadPull: async () => hasPull,
     getBriefJson: async () => o.stored,
@@ -175,15 +176,41 @@ describe('BriefService.generate', () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
-  it('llm_not_configured passes through, no call', async () => {
-    const { service, calls, upsert } = setup({
+  it('llm_not_configured passes through, no call and no fact gathering', async () => {
+    const specs = vi.fn(async () => ({ specs: [], specsRead: [] }));
+    const { service, calls, upsert, intentGet } = setup({
+      specs,
       resolveModel: async () => {
         throw new BriefDomainError('llm_not_configured', 'no key');
       },
     });
     await expect(service.generate('ws', 'pr1')).rejects.toMatchObject({ code: 'llm_not_configured' });
     expect(calls).toHaveLength(0);
+    expect(intentGet).not.toHaveBeenCalled();
+    expect(specs).not.toHaveBeenCalled();
     expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('upsert failure propagates as-is, no second LLM call', async () => {
+    const boom = new Error('db down');
+    const { service, calls } = setup({
+      upsert: async () => {
+        throw boom;
+      },
+    });
+    await expect(service.generate('ws', 'pr1')).rejects.toBe(boom);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('cost_usd sums every billed attempt; null when none report cost', async () => {
+    let n = 0;
+    const { service } = setup({
+      completeStructured: async (req) =>
+        ++n === 1 ? { ...ok(req, 0.01), data: { bad: true } } : ok(req, 0.02),
+    });
+    expect((await service.generate('ws', 'pr1')).cost_usd).toBeCloseTo(0.03);
+    const none = setup({ completeStructured: async (req) => ok(req, null) });
+    expect((await none.service.generate('ws', 'pr1')).cost_usd).toBeNull();
   });
 
   it('concurrent generate -> brief_in_progress, one LLM call; lock released after', async () => {

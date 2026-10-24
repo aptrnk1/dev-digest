@@ -113,11 +113,22 @@ describe('buildFacts — files and anchors', () => {
     const r = run({ pull: p, diff: diff({ files: [{ path: 'a.ts', role: 'core' }, { path: 'b.ts', role: 'tests' }] }) });
     expect(r.facts.files.map((f) => [f.path, f.role])).toEqual([['a.ts', 'core'], ['b.ts', 'tests'], ['c.ts', null]]);
     expect(r.facts.files[1]?.ranges).toHaveLength(20);
-    expect(r.files.get('b.ts')).toHaveLength(20);
+    expect(r.files.get('b.ts')).toHaveLength(25); // validation keeps every hunk
   });
   it('caps at 100 files', () => {
     const files = Array.from({ length: 150 }, (_, i) => ({ path: `f${i}.ts`, additions: 1, deletions: 0, patch: null }));
     expect(run({ pull: pull(files) }).facts.files).toHaveLength(100);
+  });
+  it('validation context covers all files and hunks, not only the prompt-capped ones', () => {
+    const files = Array.from({ length: 150 }, (_, i) => ({
+      path: `f${i}.ts`, additions: 1, deletions: 0,
+      patch: Array.from({ length: 25 }, (_, j) => `@@ -1 +${j * 10 + 1},2 @@`).join('\n'),
+    }));
+    const r = run({ pull: pull(files) });
+    expect(r.files.has('f119.ts')).toBe(true);
+    expect(r.files.get('f119.ts')).toHaveLength(25);
+    expect(r.facts.files).toHaveLength(100);
+    expect(r.facts.files[0]?.ranges).toHaveLength(20);
   });
   it('anchors sorted severity → path → line, at most 30 (AC54)', () => {
     const findings = [

@@ -105,4 +105,20 @@ describe('buildBriefMessages', () => {
     expect(t).toBeLessThanOrEqual(20_000);
     expect(String(msgs[1]?.content)).not.toContain('p99.ts');
   });
+
+  it('a huge blast radius is capped and never evicts changed files', () => {
+    const callers = Array.from({ length: 2000 }, (_, i) => ({ name: `caller${i}`, file: `src/caller${i}.ts`, line: i + 1 }));
+    const bigBlast: BlastRadiusResponse = {
+      ...blast,
+      changed_symbols: Array.from({ length: 500 }, (_, i) => ({ name: `sym${i}`, file: 'src/a.ts', kind: 'function' })),
+      downstream: [{ symbol: 's', endpoints_affected: [], crons_affected: [], callers }],
+    };
+    const r = buildFacts({ pull, intent, blast: bigBlast, diff, specs });
+    expect(r.facts.blast?.callers.length).toBeLessThanOrEqual(50);
+    expect(r.facts.blast?.symbols.length).toBeLessThanOrEqual(30);
+    expect(r.callerFiles.size).toBe(2000);
+    const msgs = buildBriefMessages(r, tokens);
+    expect(msgs.reduce((s, m) => s + tokens.count(String(m.content)), 0)).toBeLessThanOrEqual(20_000);
+    expect(String(msgs[1]?.content)).toContain('src/a.ts | role=core');
+  });
 });

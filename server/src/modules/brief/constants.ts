@@ -9,6 +9,8 @@ export const BRIEF_SCHEMA_NAME = 'pr_brief';
 export const MAX_FILES = 100;
 export const MAX_RANGES_PER_FILE = 20;
 export const MAX_ANCHORS = 30;
+export const MAX_BLAST_CALLERS = 50;
+export const MAX_BLAST_SYMBOLS = 30;
 export const MAX_DESCRIPTION_CHARS = 4000;
 export const MAX_PROMPT_TOKENS = 20_000;
 /** Spec token budget is enforced by `resolveForRepo`; kept here for the record. */

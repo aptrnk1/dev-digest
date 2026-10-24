@@ -73,6 +73,8 @@ export class BriefService {
 
   private async run(workspaceId: string, pull: BriefPull): Promise<PrBrief> {
     const log = this.deps.logger ?? NOOP_LOG;
+    // Fail fast (422) on a missing key before any fact gathering.
+    const { model, provider } = await this.deps.resolveModel(workspaceId);
     const [intent, blast, diff, specs] = await Promise.all([
       this.deps.intent.get(workspaceId, pull.id),
       this.deps.blast.get(workspaceId, pull.id),
@@ -97,10 +99,13 @@ export class BriefService {
 
     const facts = buildFacts({ pull, intent, blast, diff, specs });
     const messages = buildBriefMessages(facts, this.deps.tokens);
-    const { model, provider } = await this.deps.resolveModel(workspaceId);
 
+    // Retry wraps ONLY the LLM call (+ draft parse); sanitize/upsert run once below.
     let lastError: unknown;
-    for (let attempt = 1; attempt <= LLM_MAX_ATTEMPTS; attempt++) {
+    let cost: number | null = null;
+    let draft: BriefDraft | undefined;
+    let usedModel = model;
+    for (let attempt = 1; attempt <= LLM_MAX_ATTEMPTS && !draft; attempt++) {
       try {
         const res = await provider.completeStructured({
           model,
@@ -111,30 +116,36 @@ export class BriefService {
           maxRetries: 0,
           timeoutMs: LLM_TIMEOUT_MS,
         });
-        const body = sanitizeDraft(res.data, { files: facts.files, callerFiles: facts.callerFiles });
-        const brief: PrBrief = {
-          ...body,
-          intent: facts.intent,
-          intent_stale: facts.intentStale,
-          blast: facts.blast,
-          history: { history: [] },
-          missing_inputs: facts.missing,
-          head_sha: pull.headSha,
-          generated_at: (this.deps.now?.() ?? new Date()).toISOString(),
-          model: res.model || model,
-          cost_usd: res.costUsd,
-        };
-        await this.deps.store.upsertBrief(pull.id, brief);
-        return brief;
+        // billed even if the draft turns out invalid
+        if (res.costUsd !== null) cost = (cost ?? 0) + res.costUsd;
+        draft = BriefDraft.parse(res.data);
+        usedModel = res.model || model;
       } catch (err) {
-        if (err instanceof BriefDomainError && err.code === 'llm_not_configured') throw err;
         lastError = err;
         log.info(`brief: attempt ${attempt}/${LLM_MAX_ATTEMPTS} failed for PR ${pull.id}`);
       }
     }
-    throw new BriefDomainError(
-      'brief_failed',
-      `Could not generate the brief${lastError instanceof Error ? `: ${lastError.message}` : ''}`,
-    );
+    if (!draft) {
+      throw new BriefDomainError(
+        'brief_failed',
+        `Could not generate the brief${lastError instanceof Error ? `: ${lastError.message}` : ''}`,
+      );
+    }
+
+    const body = sanitizeDraft(draft, { files: facts.files, callerFiles: facts.callerFiles });
+    const brief: PrBrief = {
+      ...body,
+      intent: facts.intent,
+      intent_stale: facts.intentStale,
+      blast: facts.blast,
+      history: { history: [] },
+      missing_inputs: facts.missing,
+      head_sha: pull.headSha,
+      generated_at: (this.deps.now?.() ?? new Date()).toISOString(),
+      model: usedModel,
+      cost_usd: cost,
+    };
+    await this.deps.store.upsertBrief(pull.id, brief);
+    return brief;
   }
 }

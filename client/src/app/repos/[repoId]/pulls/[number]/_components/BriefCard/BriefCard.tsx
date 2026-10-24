@@ -10,10 +10,37 @@ import { ApiError } from "@/lib/api";
 import { useGenerateBrief, usePrBrief } from "@/lib/hooks/brief";
 import { s } from "./styles";
 
+// After a 409 (another generation is running) re-read the brief every
+// POLL_MS until it changes, for at most POLL_MAX_MS.
+const POLL_MS = 5_000;
+const POLL_MAX_MS = 100_000;
+
 export function BriefCard({ prId }: { prId: string | null }) {
   const t = useTranslations("brief");
-  const { data, isLoading, isError, refetch } = usePrBrief(prId);
+  // `from` = generated_at of the brief shown when the 409 arrived.
+  const [pollFrom, setPollFrom] = React.useState<{ from: string | null } | null>(null);
+  const { data, isLoading, isError, refetch } = usePrBrief(prId, pollFrom ? POLL_MS : false);
   const generate = useGenerateBrief(prId);
+  const generatedAt = data?.brief?.generated_at ?? null;
+
+  React.useEffect(() => {
+    if (pollFrom && generatedAt !== pollFrom.from) setPollFrom(null);
+  }, [pollFrom, generatedAt]);
+  React.useEffect(() => {
+    if (!pollFrom) return;
+    const id = setTimeout(() => setPollFrom(null), POLL_MAX_MS);
+    return () => clearTimeout(id);
+  }, [pollFrom]);
+
+  const run = () =>
+    generate.mutate(undefined, {
+      onError: (e) => {
+        if (e.status === 409) {
+          setPollFrom({ from: generatedAt });
+          void refetch();
+        }
+      },
+    });
 
   if (isLoading) {
     return (
@@ -62,7 +89,7 @@ export function BriefCard({ prId }: { prId: string | null }) {
               kind="primary"
               icon="Sparkles"
               loading={generate.isPending}
-              onClick={() => generate.mutate()}
+              onClick={run}
             >
               {generate.isPending ? t("generating") : t("generate")}
             </Button>
@@ -92,7 +119,7 @@ export function BriefCard({ prId }: { prId: string | null }) {
               size="sm"
               icon="RefreshCw"
               loading={generate.isPending}
-              onClick={() => generate.mutate()}
+              onClick={run}
             >
               {generate.isPending ? t("generating") : t("refresh")}
             </Button>

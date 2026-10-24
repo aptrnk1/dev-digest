@@ -8,7 +8,7 @@ import type {
   SmartDiffRole,
 } from '@devdigest/shared';
 import type { RunProjectContext } from '../context/types.js';
-import { MAX_ANCHORS, MAX_FILES, MAX_RANGES_PER_FILE } from './constants.js';
+import { MAX_ANCHORS, MAX_BLAST_CALLERS, MAX_BLAST_SYMBOLS, MAX_FILES, MAX_RANGES_PER_FILE } from './constants.js';
 import { hunkRanges, toBriefBlast, type LineRange } from './helpers.js';
 import type { SmartDiffFacts } from '../smart-diff/types.js';
 import type { BriefPull } from './ports.js';
@@ -34,7 +34,6 @@ export interface PromptFacts {
   title: string;
   description: string;
   intent: Pick<Intent, 'intent' | 'in_scope' | 'out_of_scope' | 'risk_areas'> | null;
-  intentStale: boolean;
   blast: {
     summary: string;
     degraded_reason: BriefBlast['degraded_reason'];
@@ -44,7 +43,6 @@ export interface PromptFacts {
   files: FileFact[];
   anchors: AnchorFact[];
   specs: { path: string; content: string }[];
-  missing: BriefMissingInput[];
 }
 
 export interface BriefFacts {
@@ -53,7 +51,7 @@ export interface BriefFacts {
   intentStale: boolean;
   intent: Intent | null;
   blast: BriefBlast | null;
-  /** Changed files → new-side hunk ranges (what Review focus may point at). */
+  /** ALL changed files → ALL new-side hunk ranges (what Review focus may point at); caps apply to the prompt only. */
   files: Map<string, LineRange[]>;
   callerFiles: Set<string>;
 }
@@ -98,6 +96,7 @@ export function buildFacts(input: {
     ...diff.files.map((f) => f.path).filter((p) => byPath.has(p)),
     ...pull.files.map((f) => f.path).filter((p) => !roles.has(p)),
   ].slice(0, MAX_FILES);
+  const allRanges = new Map(pull.files.map((f) => [f.path, hunkRanges(f.patch)]));
   const files: FileFact[] = ordered.map((path) => {
     const f = byPath.get(path)!;
     return {
@@ -105,7 +104,7 @@ export function buildFacts(input: {
       additions: f.additions,
       deletions: f.deletions,
       role: roles.get(path) ?? null,
-      ranges: hunkRanges(f.patch).slice(0, MAX_RANGES_PER_FILE),
+      ranges: (allRanges.get(path) ?? []).slice(0, MAX_RANGES_PER_FILE),
     };
   });
 
@@ -130,23 +129,21 @@ export function buildFacts(input: {
         out_of_scope: intent.out_of_scope,
         risk_areas: intent.risk_areas,
       },
-      intentStale,
       blast: briefBlast && {
         summary: blast.summary,
         degraded_reason: blast.degraded_reason,
-        symbols: blast.changed_symbols.map((s) => s.name),
-        callers: callers.map((c) => ({ name: c.name, file: c.file, line: c.line })),
+        symbols: blast.changed_symbols.slice(0, MAX_BLAST_SYMBOLS).map((s) => s.name),
+        callers: callers.slice(0, MAX_BLAST_CALLERS).map((c) => ({ name: c.name, file: c.file, line: c.line })),
       },
       files,
       anchors,
       specs: specs.specs.map((s) => ({ path: s.path, content: s.content })),
-      missing,
     },
     missing,
     intentStale,
     intent,
     blast: briefBlast,
-    files: new Map(files.map((f) => [f.path, f.ranges])),
+    files: allRanges,
     callerFiles: new Set(briefBlast?.caller_files ?? []),
   };
 }
