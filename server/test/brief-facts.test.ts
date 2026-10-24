@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import type { BlastRadiusResponse, PrIntentState } from '@devdigest/shared';
 import { buildFacts } from '../src/modules/brief/facts.js';
 import { hunkRanges, toBriefBlast } from '../src/modules/brief/helpers.js';
-import type { BriefPull, SmartDiffFacts } from '../src/modules/brief/ports.js';
+import type { BriefPull } from '../src/modules/brief/ports.js';
+import type { SmartDiffFacts } from '../src/modules/smart-diff/types.js';
 
 const repo = { owner: 'o', name: 'n' } as BriefPull['repo'];
 

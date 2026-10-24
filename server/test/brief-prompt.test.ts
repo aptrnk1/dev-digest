@@ -3,7 +3,8 @@ import type { BlastRadiusResponse, PrIntentState } from '@devdigest/shared';
 import { TiktokenTokenizer } from '../src/adapters/tokenizer/index.js';
 import { buildFacts } from '../src/modules/brief/facts.js';
 import { buildBriefMessages } from '../src/modules/brief/prompt.js';
-import type { BriefPull, SmartDiffFacts } from '../src/modules/brief/ports.js';
+import type { BriefPull } from '../src/modules/brief/ports.js';
+import type { SmartDiffFacts } from '../src/modules/smart-diff/types.js';
 
 const tokens = new TiktokenTokenizer();
 const repo = { owner: 'o', name: 'n' } as BriefPull['repo'];

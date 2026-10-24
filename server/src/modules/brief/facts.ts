@@ -10,7 +10,8 @@ import type {
 import type { RunProjectContext } from '../context/types.js';
 import { MAX_ANCHORS, MAX_FILES, MAX_RANGES_PER_FILE } from './constants.js';
 import { hunkRanges, toBriefBlast, type LineRange } from './helpers.js';
-import type { BriefPull, SmartDiffFacts } from './ports.js';
+import type { SmartDiffFacts } from '../smart-diff/types.js';
+import type { BriefPull } from './ports.js';
 
 export interface FileFact {
   path: string;

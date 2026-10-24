@@ -2,12 +2,11 @@ import type {
   BlastRadiusResponse,
   LLMProvider,
   PrBrief,
-  PrIntentState,
   RepoRef,
-  Severity,
-  SmartDiffRole,
 } from '@devdigest/shared';
-import type { RunProjectContext } from '../context/types.js';
+import type { RunContextFacade } from '../context/types.js';
+import type { IntentFacade } from '../intent/types.js';
+import type { SmartDiffFacade } from '../smart-diff/types.js';
 
 /** A PR plus what the brief reads of its files — a read model, NOT a Drizzle row. */
 export interface BriefPull {
@@ -31,39 +30,15 @@ export interface BriefStore {
 }
 
 /** Read-only stored intent (`container.intent.get`) — never derives. */
-export interface IntentSource {
-  get(workspaceId: string, prId: string): Promise<PrIntentState>;
-}
+export type IntentSource = Pick<IntentFacade, 'get'>;
 
 export interface BlastSource {
   get(workspaceId: string, prId: string): Promise<BlastRadiusResponse>;
 }
 
-/** Declared structurally (mirrors `SmartDiffFacts` of smart-diff/types.ts, plan Cross-task decisions). */
-export interface SmartDiffFacts {
-  /** Smart Diff display order. */
-  files: { path: string; role: SmartDiffRole }[];
-  /** `selectFindings` — newest review per agent, no dismissed, PR files only. */
-  findings: { file: string; start_line: number; severity: Severity; title: string }[];
-  /** At least one review of the PR exists. */
-  reviewed: boolean;
-}
+export type DiffFactsSource = Pick<SmartDiffFacade, 'facts'>;
 
-export interface DiffFactsSource {
-  facts(workspaceId: string, prId: string): Promise<SmartDiffFacts>;
-}
-
-export interface RepoContextInput {
-  workspaceId: string;
-  repoId: string;
-  repo: RepoRef;
-  clonePath: string | null;
-  base: string;
-}
-
-export interface SpecSource {
-  resolveForRepo(input: RepoContextInput, log: { info(msg: string): void }): Promise<RunProjectContext>;
-}
+export type SpecSource = Pick<RunContextFacade, 'resolveForRepo'>;
 
 /** The workspace's provider + model for `risk_brief`. Throws `BriefDomainError('llm_not_configured')`. */
 export type ModelResolver = (workspaceId: string) => Promise<{ model: string; provider: LLMProvider }>;
