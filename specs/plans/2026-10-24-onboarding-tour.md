@@ -533,5 +533,5 @@ go here:
 | T10 | done | useClipboard needs ToastProvider above; AC13 colours manual |
 | T11 | done | gatherInput (README/manifests/locks/ranked files/chains) private in service.ts; deadline via setTimeout + run.expired; logger passed to repository |
 | T12 | done | existing ToastProvider reused; error banner by ApiError.code |
-| T13 | todo | |
-| T14 | todo | |
+| T13 | done | 9/9 it tests, Docker, not self-skipped |
+| T14 | done (concerns) | skip-verify (macOS 12); first run on CI; uses agent-browser `eval` (no sibling flow does), in-page clipboard stub, deep link via location.hash |
