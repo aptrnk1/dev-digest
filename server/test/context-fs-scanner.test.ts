@@ -83,6 +83,26 @@ describe('FsDocSource.list resilience', () => {
   });
 });
 
+describe('FsDocSource dot-dot-prefixed names', () => {
+  it('lists and reads a root file named ..notes.md as ok', async () => {
+    await put('..notes.md', 'hi');
+    expect((await src.list(root)).map((d) => d.path)).toEqual(['..notes.md']);
+    expect(await src.read(root, '..notes.md')).toEqual({ kind: 'ok', content: 'hi', size: 2 });
+  });
+});
+
+describe('FsDocSource.list root failure', () => {
+  it('rejects when the clone root itself is unreadable', async () => {
+    await put('ok.md');
+    await chmod(root, 0o000);
+    try {
+      await expect(src.list(root)).rejects.toThrow();
+    } finally {
+      await chmod(root, 0o755);
+    }
+  });
+});
+
 describe('FsDocSource.read', () => {
   it('reads an ok file', async () => {
     await put('docs/a.md', 'hello');

@@ -7,7 +7,8 @@ import type { DocRead, DocSource, ScannedDoc } from './ports.js';
 /** True when `target` is `root` or lies below it (both already realpath-resolved). */
 function within(root: string, target: string): boolean {
   const rel = relative(root, target);
-  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+  if (isAbsolute(rel)) return false;
+  return rel !== '..' && !rel.startsWith('..' + sep);
 }
 
 /**
@@ -34,8 +35,9 @@ export class FsDocSource implements DocSource {
       let entries;
       try {
         entries = await readdir(join(root, rel), { withFileTypes: true });
-      } catch {
-        return; // unreadable or vanished directory: skip it, keep scanning
+      } catch (err) {
+        if (rel === '') throw err; // the clone root itself must be readable
+        return; // unreadable or vanished subdirectory: skip it, keep scanning
       }
       for (const e of entries) {
         const childRel = rel === '' ? e.name : `${rel}/${e.name}`;

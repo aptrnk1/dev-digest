@@ -176,7 +176,7 @@ d('Project context wired into the run (Testcontainers pg)', () => {
     expect(runs[0]!.status).toBe('done');
     expect(trace.specs_read).toEqual([]);
     expect(trace.prompt_assembly.specs).toBeNull();
-    const lines = trace.log.filter((e: { msg: string }) => e.msg === 'Project context: skipped (error)');
+    const lines = trace.log.filter((e: { msg: string }) => e.msg === 'Project context: skipped (error: db down)');
     expect(lines).toHaveLength(1);
     await app.close();
   });

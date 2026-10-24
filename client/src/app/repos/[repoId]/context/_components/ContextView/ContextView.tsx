@@ -5,11 +5,11 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Button, EmptyState, ErrorState, Skeleton } from "@devdigest/ui";
 import { ApiError } from "@/lib/api";
 import { useContextFiles } from "@/lib/hooks/core";
+import { useRefreshContext } from "@/lib/hooks/context";
 import { DocPreview } from "./DocPreview";
 import { baseName, groupByFolder, pickSelected } from "./helpers";
 import { s } from "./styles";
@@ -22,7 +22,7 @@ export function ContextView({ repoId, noRepo }: { repoId: string; noRepo?: boole
   const requested = params.get("doc");
   const [picked, setPicked] = React.useState<string | null>(null);
   const q = useContextFiles(noRepo ? null : repoId);
-  const qc = useQueryClient();
+  const refresh = useRefreshContext(noRepo ? null : repoId);
 
   const docs = q.data?.docs ?? [];
   const selected = pickSelected(docs, picked ?? requested);
@@ -76,7 +76,7 @@ export function ContextView({ repoId, noRepo }: { repoId: string; noRepo?: boole
             icon="RefreshCw"
             aria-busy={q.isFetching}
             disabled={q.isFetching}
-            onClick={() => qc.invalidateQueries({ queryKey: ["context", repoId] })}
+            onClick={refresh}
           >
             {t("page.refresh")}
           </Button>

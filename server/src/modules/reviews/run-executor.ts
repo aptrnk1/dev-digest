@@ -8,6 +8,7 @@ import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './reposit
 import { REVIEW_STRATEGY } from './constants.js';
 import { taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
+import type { RunProjectContext } from '../context/types.js';
 import { formatSkillForPrompt } from '../_shared/skill-prompt.js';
 
 /** A skill as rendered into this run's prompt (L02). */
@@ -237,8 +238,8 @@ export class ReviewRunExecutor {
           },
           runLog,
         )
-        .catch((): { specs: []; specsRead: string[] } => {
-          runLog.info('Project context: skipped (error)');
+        .catch((err): RunProjectContext => {
+          runLog.info(`Project context: skipped (error: ${(err as Error).message})`);
           return { specs: [], specsRead: [] };
         });
 

@@ -14,6 +14,7 @@ import {
   useContextAttachments,
   useSetContextAttachments,
   useToggleDocAttachment,
+  useRefreshContext,
 } from "@/lib/hooks/context";
 
 afterEach(() => {
@@ -125,5 +126,54 @@ describe("useToggleDocAttachment", () => {
       ]);
     });
     expect(stored).toEqual(["doc1.md", "doc2.md"]);
+  });
+});
+
+describe("useSetContextAttachments queued saves (N2)", () => {
+  it("an earlier save settling does not clobber a later optimistic state; failure rolls back to the last confirmed result", async () => {
+    const { qc, wrapper } = setup();
+    const owner = { kind: "agent", id: "a1" } as const;
+    const key = ["context-attachments", "agent", "a1", "r1"];
+    qc.setQueryData(key, att("r1", ["x.md"]));
+    let resolveA!: (v: unknown) => void;
+    let rejectB!: (e: Error) => void;
+    put.mockImplementationOnce(() => new Promise((r) => (resolveA = r)));
+    put.mockImplementationOnce(() => new Promise((_r, rej) => (rejectB = rej)));
+    get.mockResolvedValue(att("r1", ["a.md"]));
+    const { result } = renderHook(
+      () => ({ q: useContextAttachments(owner, "r1"), m: useSetContextAttachments(owner, "r1") }),
+      { wrapper },
+    );
+    const paths = () => qc.getQueryData<ReturnType<typeof att>>(key)?.attached.map((x) => x.path);
+    await act(async () => {
+      void result.current.m.mutateAsync(["a.md"]).catch(() => {});
+    });
+    await act(async () => {
+      void result.current.m.mutateAsync(["a.md", "b.md"]).catch(() => {});
+    });
+    expect(paths()).toEqual(["a.md", "b.md"]);
+    get.mockClear();
+    await act(async () => {
+      resolveA(att("r1", ["a.md"]));
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(paths()).toEqual(["a.md", "b.md"]);
+    expect(get).not.toHaveBeenCalled();
+    await act(async () => {
+      rejectB(new Error("boom"));
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(paths()).toEqual(["a.md"]);
+  });
+});
+
+describe("useRefreshContext (N8)", () => {
+  it("invalidates the repo's context and attachment queries", async () => {
+    const { qc, wrapper } = setup();
+    const spy = vi.spyOn(qc, "invalidateQueries");
+    const { result } = renderHook(() => useRefreshContext("r1"), { wrapper });
+    result.current();
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["context", "r1"] });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["context-attachments"] });
   });
 });

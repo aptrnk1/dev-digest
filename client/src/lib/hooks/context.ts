@@ -55,18 +55,31 @@ export function useContextAttachments(owner: ContextOwner, repoId: string | null
   });
 }
 
-/** Replace the (owner, repo) attachment list; optimistic, rolled back on error. */
+/* Per-key bookkeeping for queued saves: how many are in flight and the last
+   server-confirmed list (the rollback target). */
+const saves = new Map<string, { pending: number; confirmed?: ContextAttachments }>();
+
+/** Replace the (owner, repo) attachment list; optimistic, rolled back to the last
+    confirmed state when the last queued save fails; refetch only once drained. */
 export function useSetContextAttachments(owner: ContextOwner, repoId: string | null) {
   const qc = useQueryClient();
   const key = attachKey(owner, repoId);
+  const sk = key.join(":");
   return useMutation({
     mutationFn: (paths: string[]) =>
-      enqueue(owner, repoId!, () =>
-        api.put<ContextAttachments>(attachUrl(owner, repoId!), { paths }),
-      ),
+      enqueue(owner, repoId!, async () => {
+        const res = await api.put<ContextAttachments>(attachUrl(owner, repoId!), { paths });
+        const st = saves.get(sk);
+        if (st) st.confirmed = res;
+        return res;
+      }),
     onMutate: async (paths) => {
       await qc.cancelQueries({ queryKey: key });
       const previous = qc.getQueryData<ContextAttachments>(key);
+      const st = saves.get(sk) ?? { pending: 0 };
+      if (st.pending === 0) st.confirmed = previous;
+      st.pending++;
+      saves.set(sk, st);
       if (previous) {
         const byPath = new Map(previous.attached.map((a) => [a.path, a]));
         qc.setQueryData<ContextAttachments>(key, {
@@ -74,16 +87,27 @@ export function useSetContextAttachments(owner: ContextOwner, repoId: string | n
           attached: paths.map((p) => byPath.get(p) ?? { path: p, status: "ok", tokens: null }),
         });
       }
-      return { previous };
     },
-    onError: (_e, _paths, ctx) => {
-      if (ctx?.previous) qc.setQueryData(key, ctx.previous);
-    },
-    onSettled: () => {
+    onSettled: (_d, error) => {
+      const st = saves.get(sk);
+      if (!st) return;
+      st.pending--;
+      if (st.pending > 0) return;
+      saves.delete(sk);
+      if (error && st.confirmed) qc.setQueryData(key, st.confirmed);
       qc.invalidateQueries({ queryKey: key });
       qc.invalidateQueries({ queryKey: ["context", repoId, "usage"] });
     },
   });
+}
+
+/** Refresh everything Project Context shows for a repo (list, preview, usage, attachment statuses). */
+export function useRefreshContext(repoId: string | null | undefined) {
+  const qc = useQueryClient();
+  return () => {
+    qc.invalidateQueries({ queryKey: ["context", repoId] });
+    qc.invalidateQueries({ queryKey: ["context-attachments"] });
+  };
 }
 
 /** Attach (append) or detach (keep order of the rest) one doc for an owner. */
