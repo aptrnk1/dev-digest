@@ -16,6 +16,7 @@
 - 2026-10-18 · NEVER match a Claude Code PreToolUse Bash hook on a plain substring of `tool_input.command` — `echo`, `grep`, heredocs and JSON strings that merely mention `gh pr create` get blocked too (and the whole command with them). Match only a real invocation at a shell-segment start (`^`, `;`, `&&`, `|`, `(`, `$(`, newline, optional `VAR=x` prefixes) (.claude/skills/pr-self-review/scripts/gate.mjs)
 
 ## Recurring Errors & Fixes
+- 2026-10-24 · A resumed worktree implementer told to fix "in the main checkout" may be sandbox-blocked from writing outside its worktree and leave the edits there (T10 fix round) — confirm the main files equal the worktree's HEAD (`git -C <wt> show HEAD:<f> | diff - <f>`), then copy back, or dispatch a fresh implementer in the main checkout (.claude/skills/run-plan/references/review-fix.md)
 
 ## Session Notes
 

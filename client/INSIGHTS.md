@@ -6,6 +6,8 @@
 ## What Works
 
 ## What Doesn't Work
+- 2026-10-24 · DON'T detect "someone else's generation finished" by polling until `generated_at` changes after a 409 in-progress — each review round found a new edge (stale alert, tab switch loses busy state, silent timeout, stale closure); expose an in-progress flag in the GET state and poll on it, as conventions/onboarding hooks do (client/src/app/repos/[repoId]/pulls/[number]/_components/BriefCard/BriefCard.tsx)
+- 2026-10-24 · NEVER gate ErrorState on `isError` alone in a card that has cached data — TanStack v5 keeps `data` on a failed background refetch, so a single failed poll hides the shown content; use `isError && !data` (BriefCard.tsx)
 
 ## Codebase Patterns
 - 2026-10-24 · For queued optimistic mutations (TanStack 5): snapshot `previous` synchronously in onMutate BEFORE `await cancelQueries`, share a mutationKey per owner, and roll back + invalidate only when `qc.isMutating({mutationKey}) <= 1` in onError/onSettled (the settling one still counts) — a refetch-only rollback leaves unsaved rows on screen when the API is down (client/src/lib/hooks/context.ts)

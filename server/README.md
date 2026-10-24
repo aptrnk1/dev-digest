@@ -169,19 +169,22 @@ What the reviewer actually sends to the model is assembled in
   description is `low`/`inferred` whatever the model says. Reviews reach it via
   `container.intent` (non-fatal pre-work); the intent cost stays in `pr_intent`,
   not in `agent_runs.cost_usd`. Routes: `GET/POST /pulls/:id/intent`.
-- **PR Risk Brief (`modules/brief`).** `BriefService.generate` reads only
-  facades — `container.intent.get` (stored, never derives), `container.blast.get`,
-  `container.smartDiff.facts` (roles + finding anchors) and
-  `container.runContext.resolveForRepo` (specs of all enabled agents; a throw
-  means "no specs") — and builds FACTS (hunk line numbers, no diff text). ONE
-  `pr_brief` structured call (Feature Models → `risk_brief`, provider with
-  `maxRetries: 0`, 45 s per attempt, ≤ 2 attempts in the service) is checked by
-  `sanitizeDraft` (focus inside new-side ranges, refs inside changed ∪ caller
-  files, ≤ 6 risks / 6 focus, code-point truncation) and upserted into
-  `pr_brief.json`. `GET` never calls the LLM and flags `stale` when `head_sha`
-  moved. An in-memory per-PR lock gives 409 `brief_in_progress`. Routes:
-  `GET/POST /pulls/:id/brief` · 404 `pr_not_found` · 422 `llm_not_configured` ·
-  502 `brief_failed`.
+- **PR Risk Brief (`modules/brief`).** `BriefService.generate` runs: PR lookup →
+  per-PR in-memory lock (409 `brief_in_progress`) → `resolveModel` (Feature Models →
+  `risk_brief`; a missing key is 422 before any fact gathering) → facts → ONE
+  `pr_brief` structured call (provider with `maxRetries: 0`, 45 s per attempt, ≤ 2
+  attempts in the service; `cost_usd` sums the attempts) → `sanitizeDraft` → upsert
+  into `pr_brief.json`. Facts come only from facades — `container.intent.get`
+  (stored, never derives), `container.blast.get`, `container.smartDiff.facts`
+  (roles + finding anchors) and `container.runContext.resolveForRepo` (specs of all
+  enabled agents; a throw means "no specs") — and carry hunk line numbers, no diff
+  text; blast symbols/callers are capped (`MAX_BLAST_SYMBOLS` 30,
+  `MAX_BLAST_CALLERS` 50). `sanitizeDraft` keeps focus inside new-side ranges and
+  refs inside changed ∪ caller files, ≤ 6 risks / 6 focus, code-point truncation.
+  `GET` never calls the LLM and flags `stale` when `head_sha` moved. Routes:
+  `GET/POST /pulls/:id/brief` · 404 `pr_not_found` · 409 `brief_in_progress` ·
+  422 `llm_not_configured` · 502 `brief_failed`. Details:
+  [`docs/brief.md`](docs/brief.md).
 - **Project Context docs (`modules/context`).** Docs attached per agent and per
   skill (own first, then the enabled skills; first path wins) are resolved by
   `container.runContext.resolveForRun` once per agent run. They are read from

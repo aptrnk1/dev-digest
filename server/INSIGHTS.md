@@ -6,12 +6,15 @@
 ## What Works
 
 ## What Doesn't Work
+- 2026-10-24 · NEVER put persistence or sanitising inside an LLM retry `try` — a DB error after a successful call triggers a second paid LLM call and is reported as an LLM failure; retry only the provider call + parse, upsert once after the loop (server/src/modules/brief/service.ts)
 - 2026-10-24 · NEVER classify a provider error by timeout wording before its HTTP status — a 504 "Gateway Timeout" message matched `/timed? ?out/` and was treated as our own deadline (no retry, wrong error text); check status first, regex only for status-less errors (server/src/modules/onboarding/classify.ts)
 - 2026-10-24 · NEVER rely on a name-based secret filter alone when reading clone files for an LLM — a harmless-named symlink (`config/settings.txt -> ../.env`) passes `isSecretPath` and leaks `.env`; also refuse any path whose realpath differs from the lexical resolve (server/src/modules/onboarding/fs-source.ts readCapped)
 - 2026-10-24 · NEVER log a best-effort enrichment failure in run-executor with `runLog.error` — error lines go out as SSE `error` events and the client shows an "agent failure" toast for a run that succeeded; use `runLog.info` (server/src/modules/reviews/run-executor.ts Project context catch · client/src/lib/hooks/reviews.ts)
 - 2026-10-24 · NEVER test path containment with `relative(root, p).startsWith('..')` — a legit root file `..notes.md` counts as outside; check `rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)` (server/src/modules/context/fs-scanner.ts within())
 
 ## Codebase Patterns
+- 2026-10-24 · ALWAYS validate an LLM's citations (focus lines, file refs) against the FULL set of PR files/hunk ranges, and apply caps only to what goes into the prompt — validating against the capped set silently drops valid items past file #100 / hunk #20; and cap EVERY list in the prompt (blast callers/symbols too), trimming secondary context before files, or a token budget that only drops files evicts all changed files (server/src/modules/brief/facts.ts, prompt.ts buildBriefMessages)
+- 2026-10-24 · CHECK table ownership by hand in review — `drizzle-only-in-repositories` lets any module's `repository.ts` join other modules' tables (brief/repository.ts reads pull_requests/repos/pr_files) and arch:check stays green (server/src/modules/brief/repository.ts)
 - 2026-10-24 · ALWAYS construct module-local outbound adapters (`modules/<m>/fs-source.ts`, `repository.ts`) only in `compose.ts` and check `service.ts` imports by hand — depcruise `modules-no-concrete-adapters` only covers `src/adapters/**`, so a service importing them passes arch:check (server/src/modules/onboarding/compose.ts)
 - 2026-10-24 · Wire Container-backed per-request factories (e.g. `container.llmWithLimits(id, limits)`) into a module as a closure in `compose.ts` behind a port (`ResolveModel`) — the service never sees the Container and the retries→maxRetries mapping lives in one place (server/src/modules/onboarding/compose.ts)
 - 2026-10-24 · ALWAYS take ONE `now()` when two persisted values must match (tour `generated_at` vs job `finished_at`) — two clock reads drift ~1 ms and the `.it` equality assertion fails only intermittently (server/src/modules/onboarding/service.ts execute)
@@ -25,6 +28,7 @@
 - 2026-10-14 · DO persist run cost from `outcome.costUsd` at completion, don't recompute tokens×price on read — it keeps OpenRouter's real `usage.cost` and the price at run time; failed/cancelled → null (server/src/modules/reviews/run-executor.ts)
 
 ## Tool & Library Notes
+- 2026-10-24 · Structured-output providers validate against the schema and THROW on invalid output before returning usage (openai.ts) — a failed attempt's cost is invisible to the service, so `cost_usd` summed over attempts under-counts schema failures; a mock returning bad data instead of throwing hides this (server/src/modules/brief/service.ts)
 - 2026-10-24 · Truncate LLM text by code point, not UTF-16 unit, before writing jsonb — a cut through an emoji leaves a lone high surrogate that JSON.stringify escapes and Postgres jsonb rejects ("Unicode low surrogate must follow a high surrogate"), failing the whole save (server/src/modules/onboarding/validate.ts truncate)
 - 2026-10-24 · `scripts/check.sh <pkg> test <filter>` filters are relative to the package dir (`test/x.test.ts` for server, `src/...` for client) — a repo-root path like `server/test/x.test.ts` matches nothing (scripts/check.sh)
 - 2026-10-22 · NEVER read a `.it.test` run that reports all tests skipped as green — inside the Claude Code sandbox testcontainers can't reach Docker and the suites skip; check the skipped count, rerun with the sandbox disabled (`pnpm exec vitest run .it.test --no-file-parallelism`)
