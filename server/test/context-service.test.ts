@@ -151,6 +151,12 @@ describe('ContextService.file', () => {
     expect(await code(svc.file(WS, REPO, 'a.md'))).toBe('doc_not_found');
   });
 
+  it('realpath outside the clone -> invalid_path (AC9)', async () => {
+    const { docs, svc } = setup();
+    docs.files['leak.md'] = { kind: 'outside' };
+    expect(await code(svc.file(WS, REPO, 'leak.md'))).toBe('invalid_path');
+  });
+
   it('bad path -> invalid_path without reading (AC9)', async () => {
     const { docs, svc } = setup();
     for (const p of ['/abs.md', '../x.md', 'a.txt', 'node_modules/a.md', '.hid/a.md']) {
@@ -183,6 +189,14 @@ describe('ContextService.getAttachments', () => {
       { path: 'gone.md', status: 'missing', tokens: null },
     ]);
     expect(res.inherited).toEqual([]);
+  });
+
+  it('an escaping path is reported as missing (AC51)', async () => {
+    const { docs, store, svc } = setup();
+    store.own = ['leak.md'];
+    docs.files['leak.md'] = { kind: 'outside' };
+    const res = await svc.getAttachments(WS, AGENT, REPO);
+    expect(res.attached).toEqual([{ path: 'leak.md', status: 'missing', tokens: null }]);
   });
 
   it('inherited = skill docs not attached by the agent, in merge order, once (AC41)', async () => {

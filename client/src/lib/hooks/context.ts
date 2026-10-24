@@ -17,6 +17,20 @@ const attachUrl = (o: ContextOwner, repoId: string) =>
 const attachKey = (o: ContextOwner, repoId: string | null) =>
   ["context-attachments", o.kind, o.id, repoId] as const;
 
+/* Per-(owner, repo) promise chain: read-modify-write toggles and panel saves
+   for one owner run strictly one after another. */
+const queues = new Map<string, Promise<unknown>>();
+function enqueue<T>(o: ContextOwner, repoId: string, task: () => Promise<T>): Promise<T> {
+  const k = `${o.kind}:${o.id}:${repoId}`;
+  const run = (queues.get(k) ?? Promise.resolve()).catch(() => undefined).then(task);
+  const tail = run.catch(() => undefined);
+  queues.set(k, tail);
+  void tail.then(() => {
+    if (queues.get(k) === tail) queues.delete(k);
+  });
+  return run;
+}
+
 export function useContextFile(repoId: string | null | undefined, path: string | null) {
   return useQuery({
     queryKey: ["context", repoId, "file", path],
@@ -47,7 +61,9 @@ export function useSetContextAttachments(owner: ContextOwner, repoId: string | n
   const key = attachKey(owner, repoId);
   return useMutation({
     mutationFn: (paths: string[]) =>
-      api.put<ContextAttachments>(attachUrl(owner, repoId!), { paths }),
+      enqueue(owner, repoId!, () =>
+        api.put<ContextAttachments>(attachUrl(owner, repoId!), { paths }),
+      ),
     onMutate: async (paths) => {
       await qc.cancelQueries({ queryKey: key });
       const previous = qc.getQueryData<ContextAttachments>(key);
@@ -74,13 +90,14 @@ export function useSetContextAttachments(owner: ContextOwner, repoId: string | n
 export function useToggleDocAttachment(repoId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ owner, path, attach }: { owner: ContextOwner; path: string; attach: boolean }) => {
-      const cur = await api.get<ContextAttachments>(attachUrl(owner, repoId));
-      const rest = cur.attached.map((a) => a.path).filter((p) => p !== path);
-      return api.put<ContextAttachments>(attachUrl(owner, repoId), {
-        paths: attach ? [...rest, path] : rest,
-      });
-    },
+    mutationFn: ({ owner, path, attach }: { owner: ContextOwner; path: string; attach: boolean }) =>
+      enqueue(owner, repoId, async () => {
+        const cur = await api.get<ContextAttachments>(attachUrl(owner, repoId));
+        const rest = cur.attached.map((a) => a.path).filter((p) => p !== path);
+        return api.put<ContextAttachments>(attachUrl(owner, repoId), {
+          paths: attach ? [...rest, path] : rest,
+        });
+      }),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["context-attachments"] });
       qc.invalidateQueries({ queryKey: ["context", repoId, "usage"] });

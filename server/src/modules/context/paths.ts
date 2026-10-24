@@ -4,7 +4,7 @@ export type PathCheck =
   | { ok: true }
   | {
       ok: false;
-      reason: 'empty' | 'invalid_char' | 'absolute' | 'traversal' | 'extension' | 'excluded_dir';
+      reason: 'empty' | 'invalid_char' | 'absolute' | 'traversal' | 'non_canonical' | 'extension' | 'excluded_dir';
     };
 
 /** True for a directory name the scanner never enters (shared with the FS scanner). */
@@ -27,6 +27,7 @@ export function validateDocPath(p: string): PathCheck {
   }
   const segments = p.split(/[\\/]/);
   if (segments.includes('..')) return { ok: false, reason: 'traversal' };
+  if (segments.includes('.') || segments.includes('')) return { ok: false, reason: 'non_canonical' };
   if (!hasDocExtension(p)) return { ok: false, reason: 'extension' };
   if (segments.slice(0, -1).some(isExcludedDir)) return { ok: false, reason: 'excluded_dir' };
   return { ok: true };

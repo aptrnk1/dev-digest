@@ -101,4 +101,29 @@ describe("useToggleDocAttachment", () => {
       paths: ["a.md", "c.md"],
     });
   });
+
+  it("serializes back-to-back toggles for one owner so none is lost (F4)", async () => {
+    const { wrapper } = setup();
+    let stored: string[] = [];
+    const tick = () => new Promise((r) => setTimeout(r, 10));
+    get.mockImplementation(async () => {
+      const snap = [...stored];
+      await tick();
+      return att("r1", snap);
+    });
+    put.mockImplementation(async (_u: string, body: { paths: string[] }) => {
+      await tick();
+      stored = body.paths;
+      return att("r1", stored);
+    });
+    const { result } = renderHook(() => useToggleDocAttachment("r1"), { wrapper });
+    const owner = { kind: "agent", id: "a1" } as const;
+    await act(async () => {
+      await Promise.all([
+        result.current.mutateAsync({ owner, path: "doc1.md", attach: true }),
+        result.current.mutateAsync({ owner, path: "doc2.md", attach: true }),
+      ]);
+    });
+    expect(stored).toEqual(["doc1.md", "doc2.md"]);
+  });
 });

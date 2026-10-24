@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FsDocSource } from '../src/modules/context/fs-scanner.js';
@@ -70,6 +70,19 @@ describe('FsDocSource.list', () => {
   });
 });
 
+describe('FsDocSource.list resilience', () => {
+  it('skips an unreadable directory instead of failing the scan', async () => {
+    await put('ok.md');
+    await put('locked/x.md');
+    await chmod(join(root, 'locked'), 0o000);
+    try {
+      expect((await src.list(root)).map((d) => d.path)).toEqual(['ok.md']);
+    } finally {
+      await chmod(join(root, 'locked'), 0o755);
+    }
+  });
+});
+
 describe('FsDocSource.read', () => {
   it('reads an ok file', async () => {
     await put('docs/a.md', 'hello');
@@ -90,10 +103,16 @@ describe('FsDocSource.read', () => {
   it('missing when the realpath escapes the clone', async () => {
     await writeFile(join(outside, 'secret.md'), 'secret');
     await symlink(join(outside, 'secret.md'), join(root, 'leak.md'));
-    expect(await src.read(root, 'leak.md')).toEqual({ kind: 'missing' });
+    expect(await src.read(root, 'leak.md')).toEqual({ kind: 'outside' });
     expect(await src.read(root, '../' + outside.split('/').pop() + '/secret.md')).toEqual({
-      kind: 'missing',
+      kind: 'outside',
     });
+  });
+
+  it('outside when an intermediate symlinked directory leads out of the clone', async () => {
+    await writeFile(join(outside, 'secret.md'), 'secret');
+    await symlink(outside, join(root, 'escape'));
+    expect(await src.read(root, 'escape/secret.md')).toEqual({ kind: 'outside' });
   });
 
   it('missing when the path goes through a symlinked directory, even one inside the clone', async () => {

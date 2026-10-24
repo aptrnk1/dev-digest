@@ -7,7 +7,7 @@ import type { PgFixture } from './pg.js';
  * agent's review is persisted in the background (the client subscribes to SSE).
  * Tests that assert on persisted reviews/findings/traces must first wait for the
  * background runs to finish. This polls `agent_runs` until every row for the PR
- * reaches a terminal status (done / failed / cancelled).
+ * reaches a terminal status (done / failed / cancelled) AND its trace is persisted.
  */
 const TERMINAL = new Set(['done', 'failed', 'cancelled']);
 
@@ -27,7 +27,13 @@ export async function waitForPrRuns(
       expected != null
         ? terminal.length >= expected
         : runs.length > 0 && terminal.length === runs.length;
-    if (done) return runs;
+    if (done) {
+      // agent_runs flips to terminal BEFORE the trace document is saved; wait for
+      // the trace of every terminal run so callers can read it right away.
+      const traces = await db.select({ id: t.runTraces.runId }).from(t.runTraces);
+      const have = new Set(traces.map((x) => x.id));
+      if (terminal.every((r) => have.has(r.id))) return runs;
+    }
     if (Date.now() - start > timeoutMs) return runs;
     await new Promise((r) => setTimeout(r, 25));
   }

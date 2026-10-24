@@ -31,7 +31,12 @@ export class FsDocSource implements DocSource {
     const out: ScannedDoc[] = [];
 
     const walk = async (rel: string): Promise<void> => {
-      const entries = await readdir(join(root, rel), { withFileTypes: true });
+      let entries;
+      try {
+        entries = await readdir(join(root, rel), { withFileTypes: true });
+      } catch {
+        return; // unreadable or vanished directory: skip it, keep scanning
+      }
       for (const e of entries) {
         const childRel = rel === '' ? e.name : `${rel}/${e.name}`;
         if (e.isDirectory()) {
@@ -71,18 +76,20 @@ export class FsDocSource implements DocSource {
     try {
       const realRoot = await realpath(root);
       const full = join(realRoot, path);
-      if (!within(realRoot, full)) return { kind: 'missing' };
+      if (!within(realRoot, full)) return { kind: 'outside' };
 
       // No intermediate directory may be a symlink.
       const segments = relative(realRoot, full).split(sep);
       let cur = realRoot;
       for (const seg of segments.slice(0, -1)) {
         cur = join(cur, seg);
-        if ((await lstat(cur)).isSymbolicLink()) return { kind: 'missing' };
+        if ((await lstat(cur)).isSymbolicLink()) {
+          return within(realRoot, await realpath(cur)) ? { kind: 'missing' } : { kind: 'outside' };
+        }
       }
 
       const real = await realpath(full);
-      if (!within(realRoot, real)) return { kind: 'missing' };
+      if (!within(realRoot, real)) return { kind: 'outside' };
       const s = await stat(real);
       if (!s.isFile()) return { kind: 'missing' };
       if (s.size > MAX_DOC_BYTES) return { kind: 'too_large', size: s.size };

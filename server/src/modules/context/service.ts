@@ -77,6 +77,9 @@ export class ContextService implements ContextFacade {
     assertPath(path);
     const root = await this.repoRoot(ws, repoId);
     const read = await this.deps.docs.read(root, path);
+    if (read.kind === 'outside') {
+      throw new ContextDomainError('invalid_path', 'Invalid document path (outside_clone)');
+    }
     if (read.kind !== 'ok') throw new ContextDomainError('doc_not_found', 'Document not found');
     return {
       ...toSpecFile({ path, size: read.size, mtime: null }, 'ok', docTokens(this.deps.tokens, path, read.content)),

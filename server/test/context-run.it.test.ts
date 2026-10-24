@@ -51,11 +51,12 @@ d('Project context wired into the run (Testcontainers pg)', () => {
     await rm(cloneDir, { recursive: true, force: true });
   });
 
-  function appWith(files: Record<string, string>) {
+  function appWith(files: Record<string, string>, extra: Record<string, unknown> = {}) {
     return buildApp({
       config: config(),
       db: pg.handle.db,
       overrides: {
+        ...extra,
         embedder: new MockEmbedder(),
         git: new MockGitClient({ diff: DIFF, refs: ['origin/main'], files }),
         github: new MockGitHubClient(),
@@ -154,6 +155,29 @@ d('Project context wired into the run (Testcontainers pg)', () => {
     expect(JSON.stringify(trace.log)).toContain('Project context: none attached');
     const runs = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.prId, pr.id));
     expect(runs[0]!.status).toBe('done');
+    await app.close();
+  });
+
+  it('a throwing resolver does not fail the run: one skipped line, no specs', async () => {
+    const app = await appWith(
+      {},
+      {
+        runContext: {
+          resolveForRun: async () => {
+            throw new Error('db down');
+          },
+        },
+      },
+    );
+    const { pr } = await setup('ctx-run-3');
+    const { send } = await runReview(app, pr.id, 'ThrowCtxAgent');
+    const trace = await send();
+    const runs = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.prId, pr.id));
+    expect(runs[0]!.status).toBe('done');
+    expect(trace.specs_read).toEqual([]);
+    expect(trace.prompt_assembly.specs).toBeNull();
+    const lines = trace.log.filter((e: { msg: string }) => e.msg === 'Project context: skipped (error)');
+    expect(lines).toHaveLength(1);
     await app.close();
   });
 });

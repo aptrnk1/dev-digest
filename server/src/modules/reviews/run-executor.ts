@@ -225,16 +225,22 @@ export class ReviewRunExecutor {
       const skills = await this.resolveSkills(agent.id, runLog);
 
       // Project Context — attached repo docs read from origin/<base>, once per agent.
-      const projectContext = await this.container.runContext.resolveForRun(
-        {
-          repoId: pull.repoId,
-          agentId: agent.id,
-          repo: { owner: repo.owner, name: repo.name },
-          clonePath: repo.clonePath,
-          base: pull.base,
-        },
-        runLog,
-      );
+      // Best-effort like the other enrichments: a failure skips the docs, not the run.
+      const projectContext = await this.container.runContext
+        .resolveForRun(
+          {
+            repoId: pull.repoId,
+            agentId: agent.id,
+            repo: { owner: repo.owner, name: repo.name },
+            clonePath: repo.clonePath,
+            base: pull.base,
+          },
+          runLog,
+        )
+        .catch((): { specs: []; specsRead: string[] } => {
+          runLog.info('Project context: skipped (error)');
+          return { specs: [], specsRead: [] };
+        });
 
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with

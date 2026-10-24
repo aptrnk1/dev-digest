@@ -10,7 +10,9 @@ export interface ScannedDoc {
 export type DocRead =
   | { kind: 'ok'; content: string; size: number }
   | { kind: 'too_large'; size: number }
-  | { kind: 'missing' };
+  | { kind: 'missing' }
+  /** realpath (or a `..` segment) leads outside the clone. */
+  | { kind: 'outside' };
 
 /** Outbound port: the cloned repo's file system. */
 export interface DocSource {

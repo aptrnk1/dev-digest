@@ -5,6 +5,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Button, EmptyState, ErrorState, Skeleton } from "@devdigest/ui";
 import { ApiError } from "@/lib/api";
@@ -21,6 +22,7 @@ export function ContextView({ repoId, noRepo }: { repoId: string; noRepo?: boole
   const requested = params.get("doc");
   const [picked, setPicked] = React.useState<string | null>(null);
   const q = useContextFiles(noRepo ? null : repoId);
+  const qc = useQueryClient();
 
   const docs = q.data?.docs ?? [];
   const selected = pickSelected(docs, picked ?? requested);
@@ -74,14 +76,14 @@ export function ContextView({ repoId, noRepo }: { repoId: string; noRepo?: boole
             icon="RefreshCw"
             aria-busy={q.isFetching}
             disabled={q.isFetching}
-            onClick={() => q.refetch()}
+            onClick={() => qc.invalidateQueries({ queryKey: ["context", repoId] })}
           >
             {t("page.refresh")}
           </Button>
         </div>
         {groupByFolder(docs).map((g) => (
           <div key={g.folder}>
-            <div style={s.folder}>{g.folder}</div>
+            <div style={s.folder}>{g.folder || t("page.rootFolder")}</div>
             {g.docs.map((d) => (
               <button
                 key={d.path}

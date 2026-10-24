@@ -13,6 +13,9 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/repos/r1/context",
 }));
 
+const invalidate = vi.fn();
+vi.mock("@tanstack/react-query", () => ({ useQueryClient: () => ({ invalidateQueries: invalidate }) }));
+
 const toastError = vi.fn();
 vi.mock("@/lib/toast", () => ({ useToast: () => ({ error: toastError }) }));
 
@@ -38,14 +41,14 @@ import { ContextView } from "./ContextView";
 afterEach(cleanup);
 beforeEach(() => {
   search = "";
-  [replace, toastError, files, file, usage, mutate].forEach((m) => m.mockReset());
+  [replace, invalidate, toastError, files, file, usage, mutate].forEach((m) => m.mockReset());
   file.mockReturnValue({ data: { path: "a.md", content: "# Hello\n\n| x |\n|---|\n| 1 |" }, isLoading: false });
   usage.mockReturnValue({ data: { agents: [{ id: "a1", name: "Security" }], skills: [] } });
 });
 
 const doc = (path: string, status: "ok" | "too_large" = "ok") => ({
   path,
-  folder: path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "/",
+  folder: path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "",
   category: "docs",
   tokens: 10,
   status,
@@ -213,7 +216,8 @@ describe("ContextView", () => {
     files.mockReturnValue({ ...list([doc("a.md")]), refetch });
     ui();
     fireEvent.click(screen.getByRole("button", { name: messages.page.refresh }));
-    expect(refetch).toHaveBeenCalled();
+    // invalidating the ["context", repoId] prefix refreshes list, open preview and usage
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["context", "r1"] });
   });
 
   it("does not execute raw HTML or javascript: links (AC30)", () => {

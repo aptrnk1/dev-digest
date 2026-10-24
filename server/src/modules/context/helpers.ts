@@ -15,7 +15,7 @@ export function readState(
   read: DocRead,
 ): { status: ContextAttachmentStatus; tokens: number | null } {
   if (read.kind === 'ok') return { status: 'ok', tokens: docTokens(counter, path, read.content) };
-  return { status: read.kind, tokens: null };
+  return { status: read.kind === 'outside' ? 'missing' : read.kind, tokens: null };
 }
 
 export function toSpecFile(

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { ContextDocUsage } from '@devdigest/shared';
@@ -47,6 +47,10 @@ export class ContextRepository implements AttachmentStore {
   /** Replace the (owner, repo) list in one transaction: delete + insert in order. */
   async replace(ws: string, owner: ContextOwnerRef, repoId: string, paths: string[]): Promise<void> {
     await this.db.transaction(async (tx) => {
+      // Serialize overlapping PUTs for the same (owner, repo): last one wins, no unique-index 500.
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${`${owner.kind}:${owner.id}:${repoId}`}))`,
+      );
       await tx
         .delete(t.contextAttachments)
         .where(and(eq(this.ownerCol(owner), owner.id), eq(t.contextAttachments.repoId, repoId)));
