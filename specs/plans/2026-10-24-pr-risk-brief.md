@@ -356,13 +356,13 @@ go here:
 |------|--------|-------|
 | T1 | done | BlastDegradedReason moved to brief.ts; verify 3/3 |
 | T2 | done | inline; IntentCard tests green |
-| T3 | todo | |
-| T4 | todo | |
-| T5 | todo | |
-| T6 | todo | |
-| T7 | todo | |
-| T8 | todo | |
-| T9 | todo | |
+| T3 | done | inline; intent-service tests green |
+| T4 | done | DEVIATION: listEnabledAgentIds on new port EnabledAgentStore (not AttachmentStore) to keep context-service fake intact; it 4/4 |
+| T5 | done | findings in selectFindings order; brief sorts |
+| T6 | done | CONCERN: IntentSource/SpecSource/SmartDiffFacts structural — T10 to switch to Pick<…>/real types; focus validated against all ≤100 files, not budget-trimmed set |
+| T7 | done | |
+| T8 | done | Enter path relies on native <a> (jsdom) |
+| T9 | done | AC49 via remount into groups; skills not loaded |
 | T10 | todo | |
 | T11 | todo | |
 | T12 | todo | |

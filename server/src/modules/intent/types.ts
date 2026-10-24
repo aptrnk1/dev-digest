@@ -1,4 +1,4 @@
-import type { Intent, PrIntentRecord } from '@devdigest/shared';
+import type { Intent, PrIntentRecord, PrIntentState } from '@devdigest/shared';
 
 /** Run-log sink (Live Log + trace). `RunLogger` satisfies it. */
 export interface IntentLog {
@@ -18,6 +18,8 @@ export interface EnsureIntentOptions {
  */
 export interface IntentFacade {
   ensure(workspaceId: string, prId: string, opts?: EnsureIntentOptions): Promise<PrIntentRecord>;
+  /** Read-only stored intent + staleness — never calls the LLM (brief module). */
+  get(workspaceId: string, prId: string): Promise<PrIntentState>;
   /** Plain-text rendering for `ReviewInput.intent` (reviewer-core wraps it as untrusted). */
   renderForPrompt(intent: Intent): string;
 }
