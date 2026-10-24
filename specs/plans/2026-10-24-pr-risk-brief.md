@@ -359,11 +359,11 @@ go here:
 | T3 | done | inline; intent-service tests green |
 | T4 | done | DEVIATION: listEnabledAgentIds on new port EnabledAgentStore (not AttachmentStore) to keep context-service fake intact; it 4/4 |
 | T5 | done | findings in selectFindings order; brief sorts |
-| T6 | done | CONCERN: IntentSource/SpecSource/SmartDiffFacts structural — T10 to switch to Pick<…>/real types; focus validated against all ≤100 files, not budget-trimmed set |
+| T6 | done | mid-wave review A1/A2 fixed (ports use Pick<Facade>); focus validated against all ≤100 files, not budget-trimmed set |
 | T7 | done | |
 | T8 | done | Enter path relies on native <a> (jsdom) |
 | T9 | done | AC49 via remount into groups; skills not loaded |
-| T10 | todo | |
-| T11 | todo | |
+| T10 | done | CONCERN: routes test uses vi.mock(compose) instead of ContainerOverrides; lookups via Promise.all |
+| T11 | done | CONCERN: OverviewTab test lacks "no POST on mount" (covered in BriefCard tests) |
 | T12 | todo | |
 | T13 | todo | |
