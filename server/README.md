@@ -167,6 +167,14 @@ What the reviewer actually sends to the model is assembled in
   description is `low`/`inferred` whatever the model says. Reviews reach it via
   `container.intent` (non-fatal pre-work); the intent cost stays in `pr_intent`,
   not in `agent_runs.cost_usd`. Routes: `GET/POST /pulls/:id/intent`.
+- **Project Context docs (`modules/context`).** Docs attached per agent and per
+  skill (own first, then the enabled skills; first path wins) are resolved by
+  `container.runContext.resolveForRun` once per agent run. They are read from
+  `origin/<base>` through git (never the PR head, no fetch), capped at 8,000
+  tokens measured with `renderSpecsBlock`, wrapped by reviewer-core as
+  `<untrusted source="spec:<path>">`, and summarised in one Live Log line
+  (`Project context: N doc(s), +T tokens — …`). A failure or a missing clone/base
+  ref skips the docs, never the run. Details: [`docs/project-context.md`](docs/project-context.md).
 - **Grounding is mandatory.** Every finding must cite a line that exists in the
   diff or it is dropped (`groundFindings`), and the score is recomputed from the
   surviving findings — the model's self-reported score is ignored.
