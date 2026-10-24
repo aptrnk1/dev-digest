@@ -365,5 +365,5 @@ go here:
 | T9 | done | AC49 via remount into groups; skills not loaded |
 | T10 | done | CONCERN: routes test uses vi.mock(compose) instead of ContainerOverrides; lookups via Promise.all |
 | T11 | done | CONCERN: OverviewTab test lacks "no POST on mount" (covered in BriefCard tests) |
-| T12 | todo | |
-| T13 | todo | |
+| T12 | done | it 4/4 (no sandbox, none skipped) |
+| T13 | done | inline; skip-verify (macOS 12) — runs in CI |
