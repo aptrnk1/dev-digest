@@ -5,6 +5,7 @@ export * from "./core";
 export * from "./agents";
 export * from "./reviews";
 export * from "./intent";
+export * from "./brief";
 export * from "./blast";
 export * from "./smart-diff";
 export * from "./trace";
