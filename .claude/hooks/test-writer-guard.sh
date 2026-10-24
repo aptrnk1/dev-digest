@@ -31,7 +31,7 @@ except Exception:
 
 block() {
   echo "test-writer-guard: blocked write to '$1' — $2" >&2
-  echo "test-writer may only create/edit test files (*.test.ts, *.test.tsx, *.it.test.ts), server/test/**, reviewer-core/test/**, client/src/**/__fixtures__/** and e2e/specs/**. Report production-code problems under 'Suspected production bugs' instead." >&2
+  echo "test-writer may only create/edit test files (*.test.ts, *.test.tsx, *.it.test.ts), server/test/**, reviewer-core/test/**, mcp/test/**, client/src/**/__fixtures__/** and e2e/specs/**. Report production-code problems under 'Suspected production bugs' instead." >&2
   exit 2
 }
 
@@ -82,7 +82,7 @@ esac
 
 case "$rel" in
   *.test.ts|*.test.tsx) exit 0 ;;                       # incl. *.it.test.ts
-  server/test/*|reviewer-core/test/*) exit 0 ;;          # helpers, fixtures
+  server/test/*|reviewer-core/test/*|mcp/test/*) exit 0 ;;   # helpers, fixtures
   client/src/__fixtures__/*|client/src/*/__fixtures__/*) exit 0 ;;
   e2e/specs/*) exit 0 ;;                                 # flow JSON
 esac
