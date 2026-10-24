@@ -35,6 +35,9 @@ import type { BlastFacade } from '../modules/blast/types.js';
 import { createBlastFacade } from '../modules/blast/compose.js';
 import type { ContextFacade, RunContextFacade } from '../modules/context/types.js';
 import { createContextFacade, createRunContextFacade } from '../modules/context/compose.js';
+import type { OnboardingFacade } from '../modules/onboarding/types.js';
+import type { OnboardingLogger } from '../modules/onboarding/ports.js';
+import { createOnboardingFacade } from '../modules/onboarding/compose.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
@@ -73,6 +76,8 @@ export interface ContainerOverrides {
   /** Smart Diff facade — route tests inject a stub (no DB). */
   smartDiff?: SmartDiffFacade;
   blast?: BlastFacade;
+  /** Onboarding Tour facade — route tests inject a stub (no DB / FS / LLM). */
+  onboarding?: OnboardingFacade;
   /** Project Context facade — route tests inject a stub (no DB / FS). */
   projectContext?: ContextFacade;
   runContext?: RunContextFacade;
@@ -179,6 +184,11 @@ export class Container {
     if (this.overrides.blast) return this.overrides.blast;
     this._blast ??= createBlastFacade(this);
     return this._blast;
+  }
+
+  /** Onboarding Tour facade; built per call (the logger is the caller's). */
+  onboarding(logger: OnboardingLogger): OnboardingFacade {
+    return this.overrides.onboarding ?? createOnboardingFacade(this, logger);
   }
 
   /** Project Context: repo Markdown docs + agent/skill attachments. */
