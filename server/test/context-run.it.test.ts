@@ -180,4 +180,45 @@ d('Project context wired into the run (Testcontainers pg)', () => {
     expect(lines).toHaveLength(1);
     await app.close();
   });
+
+  it("resolveForRepo unions enabled agents' attachments, skips disabled, reads origin/<base>", async () => {
+    const app = await appWith({
+      'origin/main:docs/one.md': '# One',
+      'origin/main:docs/two.md': '# Two',
+      'origin/main:docs/off.md': '# Off',
+    });
+    const { repo } = await setup('ctx-run-4');
+    const [a1, a2, off] = await pg.handle.db
+      .insert(t.agents)
+      .values(
+        ['RepoA1', 'RepoA2', 'RepoOff'].map((name, i) => ({
+          workspaceId,
+          name,
+          provider: 'openai' as const,
+          model: 'gpt-4.1',
+          systemPrompt: 's',
+          enabled: i < 2,
+          createdAt: new Date(Date.now() + 60_000 + i * 1000),
+        })),
+      )
+      .returning();
+    await pg.handle.db.insert(t.contextAttachments).values([
+      { workspaceId, repoId: repo.id, agentId: a1!.id, path: 'docs/one.md', order: 0 },
+      { workspaceId, repoId: repo.id, agentId: a2!.id, path: 'docs/one.md', order: 0 },
+      { workspaceId, repoId: repo.id, agentId: a2!.id, path: 'docs/two.md', order: 1 },
+      { workspaceId, repoId: repo.id, agentId: off!.id, path: 'docs/off.md', order: 0 },
+    ]);
+    const out = await app.container.runContext.resolveForRepo(
+      {
+        workspaceId,
+        repoId: repo.id,
+        repo: { owner: 'acme', name: 'ctx-run-4' },
+        clonePath: cloneDir,
+        base: 'main',
+      },
+      { info: () => {} },
+    );
+    expect(out.specsRead).toEqual(['docs/one.md', 'docs/two.md']);
+    await app.close();
+  });
 });

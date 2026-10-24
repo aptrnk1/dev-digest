@@ -1,9 +1,10 @@
 import { renderSpecsBlock, type ProjectSpec } from '@devdigest/reviewer-core';
 import { CONTEXT_TOKEN_BUDGET, MAX_DOC_BYTES } from './constants.js';
 import { mergeAttachments } from './domain.js';
-import type { AttachmentStore, BaseRefReader, DocSource, TokenCounter } from './ports.js';
+import type { AttachmentStore, EnabledAgentStore, BaseRefReader, DocSource, TokenCounter } from './ports.js';
 import type {
   ContextLog,
+  RepoContextInput,
   RunContextFacade,
   RunContextInput,
   RunProjectContext,
@@ -13,7 +14,7 @@ const PREFIX = 'Project context:';
 const empty = (): RunProjectContext => ({ specs: [], specsRead: [] });
 
 export interface RunContextDeps {
-  store: Pick<AttachmentStore, 'loadForRun'>;
+  store: Pick<AttachmentStore, 'loadForRun'> & EnabledAgentStore;
   docs: Pick<DocSource, 'isClone'>;
   git: BaseRefReader;
   tokenizer: TokenCounter;
@@ -30,7 +31,31 @@ export class RunContextService implements RunContextFacade {
   async resolveForRun(input: RunContextInput, log: ContextLog): Promise<RunProjectContext> {
     // Attachments are read once, here; later edits only affect the next run (AC67).
     const merged = mergeAttachments(await this.deps.store.loadForRun(input.agentId, input.repoId));
-    if (merged.length === 0) {
+    return this.resolvePaths(input, merged.map((m) => m.path), log);
+  }
+
+  /** Union of every enabled agent's attachments: agents by `created_at`, own then skills, deduped. */
+  async resolveForRepo(input: RepoContextInput, log: ContextLog): Promise<RunProjectContext> {
+    const agentIds = await this.deps.store.listEnabledAgentIds(input.workspaceId);
+    const seen = new Set<string>();
+    const paths: string[] = [];
+    for (const agentId of agentIds) {
+      const merged = mergeAttachments(await this.deps.store.loadForRun(agentId, input.repoId));
+      for (const { path } of merged) {
+        if (seen.has(path)) continue;
+        seen.add(path);
+        paths.push(path);
+      }
+    }
+    return this.resolvePaths(input, paths, log);
+  }
+
+  private async resolvePaths(
+    input: Pick<RunContextInput, 'repo' | 'clonePath' | 'base'>,
+    paths: string[],
+    log: ContextLog,
+  ): Promise<RunProjectContext> {
+    if (paths.length === 0) {
       log.info(`${PREFIX} none attached`);
       return empty();
     }
@@ -45,7 +70,7 @@ export class RunContextService implements RunContextFacade {
     }
 
     const specs: ProjectSpec[] = [];
-    for (const { path } of merged) {
+    for (const path of paths) {
       const content = await this.read(input, ref, path);
       if (content === null) {
         log.info(`${PREFIX} skipped ${path} (missing)`);
@@ -64,12 +89,12 @@ export class RunContextService implements RunContextFacade {
       return empty();
     }
     const tokens = this.deps.tokenizer.count(renderSpecsBlock(specs) ?? '');
-    const paths = specs.map((s) => s.path);
-    log.info(`${PREFIX} ${specs.length} doc(s), +${tokens} tokens — ${paths.join(', ')}`);
-    return { specs, specsRead: paths };
+    const specPaths = specs.map((s) => s.path);
+    log.info(`${PREFIX} ${specs.length} doc(s), +${tokens} tokens — ${specPaths.join(', ')}`);
+    return { specs, specsRead: specPaths };
   }
 
-  private async read(input: RunContextInput, ref: string, path: string): Promise<string | null> {
+  private async read(input: Pick<RunContextInput, 'repo'>, ref: string, path: string): Promise<string | null> {
     try {
       const text = await this.deps.git.showFile(input.repo, ref, path);
       if (text === null || Buffer.byteLength(text, 'utf8') > MAX_DOC_BYTES) return null;

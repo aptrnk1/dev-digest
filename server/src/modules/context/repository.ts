@@ -2,11 +2,11 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { ContextDocUsage } from '@devdigest/shared';
-import type { AttachmentStore } from './ports.js';
+import type { AttachmentStore, EnabledAgentStore } from './ports.js';
 import type { ContextOwnerRef, RunAttachments } from './types.js';
 
 /** Drizzle adapter for `context_attachments` (+ workspace-scoped owner/repo lookups). */
-export class ContextRepository implements AttachmentStore {
+export class ContextRepository implements AttachmentStore, EnabledAgentStore {
   constructor(private readonly db: Db) {}
 
   async findRepo(ws: string, repoId: string) {
@@ -87,6 +87,15 @@ export class ContextRepository implements AttachmentStore {
       .where(scope)
       .orderBy(asc(t.skills.name));
     return { agents, skills };
+  }
+
+  async listEnabledAgentIds(workspaceId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ id: t.agents.id })
+      .from(t.agents)
+      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.enabled, true)))
+      .orderBy(asc(t.agents.createdAt), asc(t.agents.id));
+    return rows.map((r) => r.id);
   }
 
   async loadForRun(agentId: string, repoId: string): Promise<RunAttachments> {

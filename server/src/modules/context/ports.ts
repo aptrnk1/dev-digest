@@ -32,6 +32,12 @@ export interface AttachmentStore {
   loadForRun(agentId: string, repoId: string): Promise<RunAttachments>;
 }
 
+/** Outbound port: enabled agents of a workspace (repo-wide context resolution). */
+export interface EnabledAgentStore {
+  /** Oldest first (`agents.created_at`). */
+  listEnabledAgentIds(workspaceId: string): Promise<string[]>;
+}
+
 export type BaseRefReader = Pick<GitClient, 'hasRef' | 'showFile'>;
 
 export interface TokenCounter {
