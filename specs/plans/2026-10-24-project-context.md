@@ -345,4 +345,4 @@ go here:
 | T13 | done | merged 1a67fb1; tab test mocks ContextDocsPanel + useActiveRepo |
 | T14 | done | merged 59989f0; worktree arch fail = node_modules symlink artifact (PASS in main); reviews.it 'classifier failure' flaked once |
 | T15 | done | merged 03ef1fd; it 9 pass/0 skipped; no red evidence (T7 already merged); repo cascade via direct db delete |
-| T16 | todo | |
+| T16 | done | inline by orchestrator; skip-verify (macOS 12 can't launch agent-browser Chrome) — run on CI |
