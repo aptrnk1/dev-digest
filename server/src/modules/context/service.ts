@@ -55,7 +55,13 @@ export class ContextService implements ContextFacade {
 
   async list(ws: string, repoId: string): Promise<SpecFileList> {
     const root = await this.repoRoot(ws, repoId);
-    const scanned = await this.deps.docs.list(root);
+    let scanned;
+    try {
+      scanned = await this.deps.docs.list(root);
+    } catch {
+      // Unreadable clone root; the raw fs error carries an absolute local path.
+      throw new ContextDomainError('repo_not_cloned', 'Repository is not cloned');
+    }
     const docs: SpecFile[] = [];
     for (const doc of scanned.slice(0, MAX_DOCS)) {
       if (doc.size > MAX_DOC_BYTES) {

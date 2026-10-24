@@ -239,7 +239,9 @@ export class ReviewRunExecutor {
           runLog,
         )
         .catch((err): RunProjectContext => {
-          runLog.info(`Project context: skipped (error: ${(err as Error).message})`);
+          runLog.error(
+            `Project context: skipped (error: ${err instanceof Error ? err.message : String(err)})`,
+          );
           return { specs: [], specsRead: [] };
         });
 

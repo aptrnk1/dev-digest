@@ -68,12 +68,18 @@ describe("useSetContextAttachments", () => {
     const key = ["context-attachments", "agent", "a1", "r1"];
     qc.setQueryData(key, att("r1", ["a.md", "b.md"]));
     put.mockRejectedValue(new Error("boom"));
-    const { result } = renderHook(() => useSetContextAttachments({ kind: "agent", id: "a1" }, "r1"), {
-      wrapper,
-    });
+    get.mockResolvedValue(att("r1", ["a.md", "b.md"]));
+    const { result } = renderHook(
+      () => {
+        useContextAttachments({ kind: "agent", id: "a1" }, "r1");
+        return useSetContextAttachments({ kind: "agent", id: "a1" }, "r1");
+      },
+      { wrapper },
+    );
     await act(async () => {
       await result.current.mutateAsync(["b.md"]).catch(() => {});
     });
+    await waitFor(() => expect(get).toHaveBeenCalled());
     expect(put).toHaveBeenCalledWith("/agents/a1/context?repo_id=r1", { paths: ["b.md"] });
     const data = qc.getQueryData<ReturnType<typeof att>>(key);
     expect(data?.attached.map((x) => x.path)).toEqual(["a.md", "b.md"]);
@@ -168,12 +174,88 @@ describe("useSetContextAttachments queued saves (N2)", () => {
 });
 
 describe("useRefreshContext (N8)", () => {
-  it("invalidates the repo's context and attachment queries", async () => {
+  it("invalidates the repo's context and only that repo's attachment queries", async () => {
     const { qc, wrapper } = setup();
+    qc.setQueryData(["context-attachments", "agent", "a1", "r1"], att("r1", []));
+    qc.setQueryData(["context-attachments", "agent", "a1", "r2"], att("r2", []));
     const spy = vi.spyOn(qc, "invalidateQueries");
     const { result } = renderHook(() => useRefreshContext("r1"), { wrapper });
     result.current();
     expect(spy).toHaveBeenCalledWith({ queryKey: ["context", "r1"] });
-    expect(spy).toHaveBeenCalledWith({ queryKey: ["context-attachments"] });
+    const pred = spy.mock.calls.map((c) => c[0]?.predicate).find(Boolean)!;
+    const find = (r: string) => qc.getQueryCache().find({ queryKey: ["context-attachments", "agent", "a1", r] })!;
+    expect(pred(find("r1"))).toBe(true);
+    expect(pred(find("r2"))).toBe(false);
+  });
+});
+
+describe("Refresh while a panel save is pending (R2)", () => {
+  it("does not refetch attachments of an owner with an in-flight save", async () => {
+    const { qc, wrapper } = setup();
+    const owner = { kind: "agent", id: "a1" } as const;
+    const key = ["context-attachments", "agent", "a1", "r1"];
+    qc.setQueryData(key, att("r1", ["x.md"]));
+    let release!: (v: unknown) => void;
+    put.mockImplementation(() => new Promise((r) => (release = r)));
+    get.mockResolvedValue(att("r1", ["x.md"]));
+    const { result } = renderHook(
+      () => ({
+        q: useContextAttachments(owner, "r1"),
+        m: useSetContextAttachments(owner, "r1"),
+        refresh: useRefreshContext("r1"),
+      }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.q.isSuccess).toBe(true));
+    await act(async () => {
+      void result.current.m.mutateAsync(["x.md", "y.md"]);
+    });
+    get.mockClear();
+    await act(async () => {
+      result.current.refresh();
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(get).not.toHaveBeenCalled();
+    expect(qc.getQueryData<ReturnType<typeof att>>(key)?.attached.map((x) => x.path)).toEqual(["x.md", "y.md"]);
+    release(att("r1", ["x.md", "y.md"])); // drain the module-level queue for other tests
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+  });
+});
+
+describe("rollback when the API is down (AC38, AC27)", () => {
+  const owner = { kind: "agent", id: "a1" } as const;
+  const key = ["context-attachments", "agent", "a1", "r1"];
+  const paths = (qc: QueryClient) =>
+    qc.getQueryData<ReturnType<typeof att>>(key)?.attached.map((x) => x.path);
+
+  it("panel save: PUT and the follow-up GET both fail -> rows show the pre-change list", async () => {
+    const { qc, wrapper } = setup();
+    qc.setQueryData(key, att("r1", ["a.md", "b.md"]));
+    put.mockRejectedValue(new Error("down"));
+    get.mockRejectedValue(new Error("down"));
+    const { result } = renderHook(
+      () => ({ q: useContextAttachments(owner, "r1"), m: useSetContextAttachments(owner, "r1") }),
+      { wrapper },
+    );
+    await act(async () => {
+      await result.current.m.mutateAsync(["b.md"]).catch(() => {});
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(paths(qc)).toEqual(["a.md", "b.md"]);
+  });
+
+  it("toggle: PUT and GET fail -> attachments return to the pre-change list", async () => {
+    const { qc, wrapper } = setup();
+    qc.setQueryData(key, att("r1", ["a.md"]));
+    get.mockRejectedValue(new Error("down"));
+    put.mockRejectedValue(new Error("down"));
+    const { result } = renderHook(() => useToggleDocAttachment("r1"), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync({ owner, path: "z.md", attach: true }).catch(() => {});
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(paths(qc)).toEqual(["a.md"]);
   });
 });

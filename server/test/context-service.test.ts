@@ -24,7 +24,9 @@ class FakeDocs implements DocSource {
   async isClone() {
     return this.cloned;
   }
+  listError: Error | null = null;
   async list() {
+    if (this.listError) throw this.listError;
     return this.scanned;
   }
   async read(_root: string, path: string): Promise<DocRead> {
@@ -80,6 +82,13 @@ const code = async (p: Promise<unknown>) => {
 };
 
 describe('ContextService.list', () => {
+  it('maps an unreadable clone root to repo_not_cloned without leaking the path', async () => {
+    const { docs, svc } = setup();
+    docs.listError = new Error("EACCES: permission denied, scandir '/Users/x/.devdigest/clones/r'");
+    expect(await code(svc.list(WS, REPO))).toBe('repo_not_cloned');
+    await expect(svc.list(WS, REPO)).rejects.toThrow(/^Repository is not cloned$/);
+  });
+
   it('maps docs with folder/category/size and tokens = count(wrapSpec) (AC2, AC3, AC11)', async () => {
     const { docs, svc } = setup();
     docs.scanned = [

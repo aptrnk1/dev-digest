@@ -70,8 +70,11 @@ describe('FsDocSource.list', () => {
   });
 });
 
+// chmod 000 does not block root, so these cases only make sense for non-root runs.
+const isRoot = process.getuid?.() === 0;
+
 describe('FsDocSource.list resilience', () => {
-  it('skips an unreadable directory instead of failing the scan', async () => {
+  it.skipIf(isRoot)('skips an unreadable directory instead of failing the scan', async () => {
     await put('ok.md');
     await put('locked/x.md');
     await chmod(join(root, 'locked'), 0o000);
@@ -92,7 +95,7 @@ describe('FsDocSource dot-dot-prefixed names', () => {
 });
 
 describe('FsDocSource.list root failure', () => {
-  it('rejects when the clone root itself is unreadable', async () => {
+  it.skipIf(isRoot)('rejects when the clone root itself is unreadable', async () => {
     await put('ok.md');
     await chmod(root, 0o000);
     try {

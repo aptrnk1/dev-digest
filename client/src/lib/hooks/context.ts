@@ -2,7 +2,8 @@
    per-(agent|skill, repo) attachments. `useContextFiles` lives in core.ts. */
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type { SpecFile, ContextDocUsage, ContextAttachments } from "../types";
 
@@ -55,31 +56,46 @@ export function useContextAttachments(owner: ContextOwner, repoId: string | null
   });
 }
 
-/* Per-key bookkeeping for queued saves: how many are in flight and the last
-   server-confirmed list (the rollback target). */
-const saves = new Map<string, { pending: number; confirmed?: ContextAttachments }>();
+/* Save mutations are tracked by TanStack itself. Panel saves carry the owner in
+   the key (`[SAVE, repoId, kind, id]`), toggles only `[SAVE, repoId]` (owner is a
+   variable). `savesInFlight` counts both for one owner. */
+const SAVE = "context-attachments-save";
+function savesInFlight(qc: QueryClient, o: ContextOwner, repoId: string | null): number {
+  return qc.isMutating({
+    predicate: (m) => {
+      const k = m.options.mutationKey;
+      if (!k || k[0] !== SAVE || k[1] !== repoId) return false;
+      const owner = k.length > 2 ? { kind: k[2], id: k[3] } : (m.state.variables as { owner: ContextOwner }).owner;
+      return owner.kind === o.kind && owner.id === o.id;
+    },
+  });
+}
 
-/** Replace the (owner, repo) attachment list; optimistic, rolled back to the last
-    confirmed state when the last queued save fails; refetch only once drained. */
+/** Called from onSettled: refetch the true server state once the last save for
+    the owner settles (so earlier settles never clobber a later optimistic list). */
+function settleSaves(qc: QueryClient, o: ContextOwner, repoId: string | null) {
+  if (savesInFlight(qc, o, repoId) > 1) return; // this mutation still counts itself
+  qc.invalidateQueries({ queryKey: attachKey(o, repoId) });
+  qc.invalidateQueries({ queryKey: ["context", repoId, "usage"] });
+}
+
+/** On failure of the last in-flight save, restore the pre-change list right away
+    (the server may be unreachable); settleSaves then refetches the real state. */
+function rollback(qc: QueryClient, o: ContextOwner, repoId: string | null, previous?: ContextAttachments) {
+  if (previous && savesInFlight(qc, o, repoId) <= 1) qc.setQueryData(attachKey(o, repoId), previous);
+}
+
+/** Replace the (owner, repo) attachment list; optimistic, refetched when the last pending save settles. */
 export function useSetContextAttachments(owner: ContextOwner, repoId: string | null) {
   const qc = useQueryClient();
   const key = attachKey(owner, repoId);
-  const sk = key.join(":");
   return useMutation({
+    mutationKey: [SAVE, repoId, owner.kind, owner.id],
     mutationFn: (paths: string[]) =>
-      enqueue(owner, repoId!, async () => {
-        const res = await api.put<ContextAttachments>(attachUrl(owner, repoId!), { paths });
-        const st = saves.get(sk);
-        if (st) st.confirmed = res;
-        return res;
-      }),
+      enqueue(owner, repoId!, () => api.put<ContextAttachments>(attachUrl(owner, repoId!), { paths })),
     onMutate: async (paths) => {
+      const previous = qc.getQueryData<ContextAttachments>(key); // sync, before any await
       await qc.cancelQueries({ queryKey: key });
-      const previous = qc.getQueryData<ContextAttachments>(key);
-      const st = saves.get(sk) ?? { pending: 0 };
-      if (st.pending === 0) st.confirmed = previous;
-      st.pending++;
-      saves.set(sk, st);
       if (previous) {
         const byPath = new Map(previous.attached.map((a) => [a.path, a]));
         qc.setQueryData<ContextAttachments>(key, {
@@ -87,33 +103,37 @@ export function useSetContextAttachments(owner: ContextOwner, repoId: string | n
           attached: paths.map((p) => byPath.get(p) ?? { path: p, status: "ok", tokens: null }),
         });
       }
+      return { previous };
     },
-    onSettled: (_d, error) => {
-      const st = saves.get(sk);
-      if (!st) return;
-      st.pending--;
-      if (st.pending > 0) return;
-      saves.delete(sk);
-      if (error && st.confirmed) qc.setQueryData(key, st.confirmed);
-      qc.invalidateQueries({ queryKey: key });
-      qc.invalidateQueries({ queryKey: ["context", repoId, "usage"] });
-    },
+    onError: (_e, _paths, ctx) => rollback(qc, owner, repoId, ctx?.previous),
+    onSettled: () => settleSaves(qc, owner, repoId),
   });
 }
 
-/** Refresh everything Project Context shows for a repo (list, preview, usage, attachment statuses). */
+/** Refresh everything Project Context shows for a repo; attachments of owners
+    with a save in flight are left alone (their optimistic list must survive). */
 export function useRefreshContext(repoId: string | null | undefined) {
   const qc = useQueryClient();
-  return () => {
+  return useCallback(() => {
     qc.invalidateQueries({ queryKey: ["context", repoId] });
-    qc.invalidateQueries({ queryKey: ["context-attachments"] });
-  };
+    qc.invalidateQueries({
+      predicate: (q) => {
+        const k = q.queryKey;
+        return (
+          k[0] === "context-attachments" &&
+          k[3] === repoId &&
+          savesInFlight(qc, { kind: k[1] as ContextOwner["kind"], id: k[2] as string }, repoId ?? null) === 0
+        );
+      },
+    });
+  }, [qc, repoId]);
 }
 
 /** Attach (append) or detach (keep order of the rest) one doc for an owner. */
 export function useToggleDocAttachment(repoId: string) {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: [SAVE, repoId],
     mutationFn: ({ owner, path, attach }: { owner: ContextOwner; path: string; attach: boolean }) =>
       enqueue(owner, repoId, async () => {
         const cur = await api.get<ContextAttachments>(attachUrl(owner, repoId));
@@ -122,9 +142,21 @@ export function useToggleDocAttachment(repoId: string) {
           paths: attach ? [...rest, path] : rest,
         });
       }),
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["context-attachments"] });
-      qc.invalidateQueries({ queryKey: ["context", repoId, "usage"] });
+    onMutate: async ({ owner, path, attach }) => {
+      const key = attachKey(owner, repoId);
+      const previous = qc.getQueryData<ContextAttachments>(key); // sync, before any await
+      await qc.cancelQueries({ queryKey: key });
+      if (previous) {
+        const rest = previous.attached.filter((a) => a.path !== path);
+        const existing = previous.attached.find((a) => a.path === path);
+        qc.setQueryData<ContextAttachments>(key, {
+          ...previous,
+          attached: attach ? [...rest, existing ?? { path, status: "ok", tokens: null }] : rest,
+        });
+      }
+      return { previous };
     },
+    onError: (_e, v, ctx) => rollback(qc, v.owner, repoId, ctx?.previous),
+    onSettled: (_d, _e, v) => settleSaves(qc, v.owner, repoId),
   });
 }

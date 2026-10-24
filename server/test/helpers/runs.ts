@@ -36,7 +36,8 @@ export async function waitForPrRuns(
         .from(t.runTraces)
         .where(inArray(t.runTraces.runId, terminalIds));
       const have = new Set(traces.map((x) => x.id));
-      const ready = expected != null ? have.size >= expected : terminal.every((r) => have.has(r.id));
+      // Only 'done' runs are guaranteed a trace; failed/cancelled may lack one.
+      const ready = terminal.every((r) => r.status !== 'done' || have.has(r.id));
       if (ready) return runs;
     }
     if (Date.now() - start > timeoutMs) return runs;
