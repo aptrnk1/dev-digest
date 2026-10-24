@@ -33,8 +33,8 @@ import type { SmartDiffFacade } from '../modules/smart-diff/types.js';
 import { createSmartDiffFacade } from '../modules/smart-diff/compose.js';
 import type { BlastFacade } from '../modules/blast/types.js';
 import { createBlastFacade } from '../modules/blast/compose.js';
-import type { ContextFacade } from '../modules/context/types.js';
-import { createContextFacade } from '../modules/context/compose.js';
+import type { ContextFacade, RunContextFacade } from '../modules/context/types.js';
+import { createContextFacade, createRunContextFacade } from '../modules/context/compose.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
@@ -67,6 +67,7 @@ export interface ContainerOverrides {
   blast?: BlastFacade;
   /** Project Context facade — route tests inject a stub (no DB / FS). */
   projectContext?: ContextFacade;
+  runContext?: RunContextFacade;
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
@@ -97,6 +98,7 @@ export class Container {
   private _smartDiff?: SmartDiffFacade;
   private _blast?: BlastFacade;
   private _projectContext?: ContextFacade;
+  private _runContext?: RunContextFacade;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
   private _priceBook?: PriceBook;
@@ -176,6 +178,13 @@ export class Container {
     if (this.overrides.projectContext) return this.overrides.projectContext;
     this._projectContext ??= createContextFacade(this);
     return this._projectContext;
+  }
+
+  /** Project Context resolver used once per agent run by the review executor. */
+  get runContext(): RunContextFacade {
+    if (this.overrides.runContext) return this.overrides.runContext;
+    this._runContext ??= createRunContextFacade(this);
+    return this._runContext;
   }
 
   /** Import-graph builder (dependency-cruiser). T3 indexer pipeline only. */

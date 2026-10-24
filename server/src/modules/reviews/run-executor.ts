@@ -224,6 +224,18 @@ export class ReviewRunExecutor {
       // links that are enabled AND whose skill is enabled reach the prompt.
       const skills = await this.resolveSkills(agent.id, runLog);
 
+      // Project Context — attached repo docs read from origin/<base>, once per agent.
+      const projectContext = await this.container.runContext.resolveForRun(
+        {
+          repoId: pull.repoId,
+          agentId: agent.id,
+          repo: { owner: repo.owner, name: repo.name },
+          clonePath: repo.clonePath,
+          base: pull.base,
+        },
+        runLog,
+      );
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -247,6 +259,7 @@ export class ReviewRunExecutor {
         // Intent Layer — rendered intent; reviewer-core wraps it as untrusted.
         ...(intent ? { intent } : {}),
         ...(skills.length > 0 ? { skills: skills.map((sk) => sk.text) } : {}),
+        ...(projectContext.specs.length > 0 ? { specs: projectContext.specs } : {}),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
         onEvent: (e) => runLog.event(e.kind, e.msg, e.data),
@@ -323,7 +336,7 @@ export class ReviewRunExecutor {
         })),
         raw_output: outcome.raw,
         memory_pulled: [],
-        specs_read: [],
+        specs_read: projectContext.specsRead,
         // Persisted log = the run's FULL event buffer (incl. shared pre-work:
         // diff load + intent), not just events recorded inside this method.
         log: runLog.logFor(runId),
