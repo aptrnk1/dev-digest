@@ -239,7 +239,8 @@ export class ReviewRunExecutor {
           runLog,
         )
         .catch((err): RunProjectContext => {
-          runLog.error(
+          // info, not error: an SSE `error` event shows an "agent failure" toast, but this skip is best-effort.
+          runLog.info(
             `Project context: skipped (error: ${err instanceof Error ? err.message : String(err)})`,
           );
           return { specs: [], specsRead: [] };
