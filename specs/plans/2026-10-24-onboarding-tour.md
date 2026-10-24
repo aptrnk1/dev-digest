@@ -526,11 +526,11 @@ go here:
 | T3 | done | AC60 fetch counter covers openai+anthropic only (plan Risks) |
 | T4 | done (concerns) | MANIFEST_FILES/LOCK_FILES lists invented (spec silent); isSafeRelativePath stricter than AC — re-check P5 |
 | T5 | done (concerns) | extra i18n keys; 409 in_progress resolves with cached/placeholder job — re-check P5 |
-| T6 | todo | |
-| T7 | todo | |
-| T8 | todo | |
-| T9 | todo | |
-| T10 | todo | |
+| T6 | done (concerns) | no INJECTION_GUARD in buildMessages — relies on system-prompt rule + <untrusted> blocks (AC58 as specced); prompt has only {{language}}, T11 substitutes |
+| T7 | done (concerns) | repository logger is optional ctor arg — T11 must pass it; tryStart/CAS atomicity tested in T13 |
+| T8 | done | seed upsert not run vs Postgres (T13); first_tasks descriptions authored |
+| T9 | done | inline; icon Workflow (nearest to D1) |
+| T10 | done | useClipboard needs ToastProvider above; AC13 colours manual |
 | T11 | todo | |
 | T12 | todo | |
 | T13 | todo | |

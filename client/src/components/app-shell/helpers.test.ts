@@ -20,3 +20,25 @@ describe("Project Context nav", () => {
     expect(activeKeyFor("/repos/r/context")).toBe("context");
   });
 });
+
+describe("Onboarding Tour nav", () => {
+  it("sits between Pull Requests and Project Context without a g-key (AC1)", () => {
+    const ws = NAV.find((g) => g.section === "WORKSPACE");
+    expect(ws?.items.map((i) => i.key)).toEqual(["pulls", "onboarding-tour", "context"]);
+    const item = ws?.items.find((i) => i.key === "onboarding-tour");
+    expect(item).toMatchObject({ label: "Onboarding Tour", href: "/repos/:repoId/tour" });
+    expect(item?.gKey).toBeUndefined();
+  });
+
+  it("is active on /repos/:id/tour only, not on /onboarding (AC1, AC2)", () => {
+    expect(activeKeyFor("/repos/r/tour")).toBe("onboarding-tour");
+    expect(activeKeyFor("/repos/r/tour/")).toBe("onboarding-tour");
+    expect(activeKeyFor("/onboarding")).not.toBe("onboarding-tour");
+    expect(activeKeyFor("/repos/r/tours")).not.toBe("onboarding-tour");
+  });
+
+  it("keeps the user on the tour when switching repos (AC3)", () => {
+    expect(repoSwitchHref("/repos/r1/tour", "r2")).toBe("/repos/r2/tour");
+    expect(repoSwitchHref("/repos/r1/tours", "r2")).toBe("/repos/r2/pulls");
+  });
+});
