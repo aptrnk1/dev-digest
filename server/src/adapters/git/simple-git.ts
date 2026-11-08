@@ -137,6 +137,15 @@ export class SimpleGitClient implements GitClient {
       return null;
     }
   }
+
+  async hasRef(repo: RepoRef, ref: string): Promise<boolean> {
+    try {
+      await this.git(repo).raw(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 function parseBlamePorcelain(raw: string): BlameLine[] {

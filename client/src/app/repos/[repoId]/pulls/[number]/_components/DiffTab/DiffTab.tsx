@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { SectionLabel, Button } from "@devdigest/ui";
 import { DiffViewer, type DiffCommentApi } from "@/components/diff-viewer";
@@ -10,7 +11,7 @@ import { notify } from "@/lib/toast";
 import type { FindingRecord, PrFile } from "@devdigest/shared";
 import { FindingCard } from "../FindingCard";
 import { SmartDiffGroup } from "./_components/SmartDiffGroup";
-import { indexFindings, resolveGroups } from "./helpers";
+import { indexFindings, matchTarget, resolveGroups } from "./helpers";
 
 interface DiffTabProps {
   prId: string | null;
@@ -25,6 +26,9 @@ interface DiffTabProps {
 
 export function DiffTab({ prId, filesCount, files, canComment, repoFullName, headSha }: DiffTabProps) {
   const t = useTranslations("prReview");
+  const tb = useTranslations("brief");
+  const fileParam = useSearchParams()?.get("file") ?? null;
+  const targetPath = matchTarget(files, fileParam);
   const { data: smartDiff } = useSmartDiff(prId);
   const { data: reviews } = usePrReviews(prId);
   const findingAction = useFindingAction();
@@ -85,15 +89,20 @@ export function DiffTab({ prId, filesCount, files, canComment, repoFullName, hea
       >
         {t("smartDiff.filesChangedTitle", { count: filesCount })}
       </SectionLabel>
+      {fileParam && !targetPath && (
+        <p role="status" style={{ margin: "0 0 12px", fontSize: 13, color: "var(--text-muted)" }}>
+          {tb("fileNotInDiff", { file: fileParam })}
+        </p>
+      )}
       {groups ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {groups.map((g) => (
-            <SmartDiffGroup key={g.role} group={g} commenting={commenting} renderFinding={renderFinding} />
+            <SmartDiffGroup key={g.role} group={g} targetPath={targetPath} commenting={commenting} renderFinding={renderFinding} />
           ))}
         </div>
       ) : (
         // Loading or failed: fall back to the flat list; never an error state.
-        <DiffViewer files={files} commenting={commenting} />
+        <DiffViewer files={files} commenting={commenting} targetPath={targetPath} />
       )}
     </section>
   );

@@ -9,7 +9,9 @@ import {
   PrHistory,
   SmartDiff,
   Conformance,
-  Onboarding,
+  OnboardingTour,
+  OnboardingJob,
+  OnboardingTourResponse,
   EvalRun,
   MemoryItem,
   RunTrace,
@@ -17,7 +19,15 @@ import {
   Repo,
   PrDetail,
   PrIntentState,
+  PrBrief,
+  PrBriefState,
+  BlastDegradedReason,
   PromptAssembly,
+  SpecFile,
+  SpecFileList,
+  ContextDocUsage,
+  ContextAttachments,
+  ContextAttachmentsInput,
   FEATURE_MODELS,
 } from '@devdigest/shared';
 
@@ -347,18 +357,71 @@ describe('AI contracts parse fixtures', () => {
     ).toThrow();
   });
 
-  it('Conformance / Onboarding / EvalRun / MemoryItem', () => {
+  describe('Onboarding tour', () => {
+    const sha = 'a'.repeat(40);
+    const tour = () => ({
+      commit_sha: sha,
+      generated_at: '2026-10-24T10:00:00.000Z',
+      files_indexed: 12,
+      index_status: 'full',
+      architecture: {
+        summary: 'Summary',
+        diagram: {
+          nodes: [{ id: 'a', label: 'API', kind: 'entry', path: 'src/index.ts' }],
+          edges: [{ from: 'a', to: 'a' }],
+        },
+      },
+      critical_paths: [{ path: 'src/a.ts', description: 'd' }],
+      run_steps: [{ command: 'pnpm dev', source_path: 'package.json' }],
+      reading_path: [{ path: 'README.md', why: 'w' }],
+      first_tasks: [{ title: 't', description: 'd', size: 'S', files: ['src/a.ts'] }],
+    });
+
+    it('accepts a valid tour', () => {
+      expect(() => OnboardingTour.parse(tour())).not.toThrow();
+    });
+
+    it('rejects 9 critical_paths', () => {
+      const t = tour();
+      t.critical_paths = Array.from({ length: 9 }, () => ({ path: 'p', description: 'd' }));
+      expect(() => OnboardingTour.parse(t)).toThrow();
+    });
+
+    it('rejects 13 diagram nodes', () => {
+      const t = tour();
+      t.architecture.diagram.nodes = Array.from({ length: 13 }, (_, i) => ({
+        id: `n${i}`,
+        label: 'l',
+        kind: 'module',
+        path: null,
+      }));
+      expect(() => OnboardingTour.parse(t)).toThrow();
+    });
+
+    it('rejects a first task with 4 files', () => {
+      const t = tour();
+      t.first_tasks[0]!.files = ['a', 'b', 'c', 'd'];
+      expect(() => OnboardingTour.parse(t)).toThrow();
+    });
+
+    it('rejects a job error longer than 200 chars', () => {
+      const job = { status: 'failed', error: 'x'.repeat(201), started_at: 's', finished_at: 'f' };
+      expect(() => OnboardingJob.parse(job)).toThrow();
+      expect(() => OnboardingJob.parse({ ...job, error: 'x'.repeat(200) })).not.toThrow();
+    });
+
+    it('accepts job: null, tour: null', () => {
+      expect(() => OnboardingTourResponse.parse({ job: null, tour: null })).not.toThrow();
+    });
+  });
+
+  it('Conformance / EvalRun / MemoryItem', () => {
     expect(() =>
       Conformance.parse({
         spec_id: 's1',
         spec_title: 'Spec',
         items: [{ requirement: 'r', status: 'implemented' }],
         completeness_pct: 80,
-      }),
-    ).not.toThrow();
-    expect(() =>
-      Onboarding.parse({
-        sections: [{ kind: 'architecture', title: 'T', body: 'b', links: [] }],
       }),
     ).not.toThrow();
     expect(() =>
@@ -477,5 +540,92 @@ describe('Intent layer contracts', () => {
     const m = FEATURE_MODELS.find((f) => f.id === 'review_intent');
     expect(m?.defaultProvider).toBe('openrouter');
     expect(m?.defaultModel).toBe('anthropic/claude-haiku-4-5');
+  });
+
+  describe('Project Context contracts', () => {
+    const doc = {
+      path: 'docs/a.md',
+      folder: 'docs',
+      category: 'docs',
+      size: 10,
+      tokens: null,
+      status: 'too_large',
+    };
+    const id = '11111111-1111-4111-8111-111111111111';
+
+    it('SpecFile / SpecFileList parse and reject bad enums', () => {
+      expect(SpecFile.parse(doc).tokens).toBeNull();
+      expect(SpecFileList.parse({ docs: [doc], truncated: false }).docs).toHaveLength(1);
+      expect(SpecFile.safeParse({ ...doc, category: 'other' }).success).toBe(false);
+      expect(SpecFile.safeParse({ ...doc, status: 'missing' }).success).toBe(false);
+      expect(SpecFile.safeParse({ path: 'a.md' }).success).toBe(false);
+    });
+
+    it('ContextDocUsage and ContextAttachments parse', () => {
+      expect(ContextDocUsage.parse({ agents: [{ id: 'a', name: 'A' }], skills: [] }).skills).toEqual([]);
+      const ok = ContextAttachments.parse({
+        repo_id: id,
+        attached: [{ path: 'a.md', status: 'missing', tokens: null }],
+        inherited: [{ path: 'b.md', skill_id: id, skill_name: 'S', status: 'ok', tokens: 5 }],
+      });
+      expect(ok.inherited[0]?.tokens).toBe(5);
+      expect(
+        ContextAttachments.safeParse({ repo_id: id, attached: [{ path: 'a', status: 'x', tokens: 1 }], inherited: [] })
+          .success,
+      ).toBe(false);
+    });
+
+    it('ContextAttachmentsInput caps paths at 50', () => {
+      const paths = (n: number) => Array.from({ length: n }, (_, i) => `d${i}.md`);
+      expect(ContextAttachmentsInput.safeParse({ paths: paths(50) }).success).toBe(true);
+      expect(ContextAttachmentsInput.safeParse({ paths: paths(51) }).success).toBe(false);
+      expect(ContextAttachmentsInput.safeParse({ paths: [''] }).success).toBe(false);
+    });
+  });
+});
+
+describe('PR Brief contracts', () => {
+  const base = {
+    summary: 'Adds retry to the sync job.',
+    intent: null,
+    intent_stale: false,
+    blast: null,
+    risks: { risks: [{ kind: 'data', title: 't', explanation: 'e', severity: 'high', file_refs: ['a.ts'] }] },
+    review_focus: [{ file: 'a.ts', line: 12, reason: 'retry loop' }],
+    missing_inputs: ['intent', 'blast'],
+    head_sha: 'abc123',
+    generated_at: '2026-10-24T10:00:00.000Z',
+    model: 'claude-x',
+    cost_usd: null,
+  };
+
+  it('parses a full brief and defaults history', () => {
+    const parsed = PrBrief.parse(base);
+    expect(parsed.history).toEqual({ history: [] });
+    expect(parsed.intent).toBeNull();
+    expect(parsed.blast).toBeNull();
+  });
+
+  it('parses a brief with blast', () => {
+    const parsed = PrBrief.parse({
+      ...base,
+      blast: { summary: 's', caller_files: ['b.ts'], degraded_reason: null },
+    });
+    expect(parsed.blast?.caller_files).toEqual(['b.ts']);
+  });
+
+  it('rejects unknown missing_inputs and bad severity', () => {
+    expect(() => PrBrief.parse({ ...base, missing_inputs: ['nope'] })).toThrow();
+    expect(() =>
+      PrBrief.parse({ ...base, risks: { risks: [{ ...base.risks.risks[0], severity: 'critical' }] } }),
+    ).toThrow();
+  });
+
+  it('parses PrBriefState', () => {
+    expect(PrBriefState.parse({ brief: null, stale: false })).toEqual({ brief: null, stale: false });
+  });
+
+  it('keeps BlastDegradedReason on the barrel', () => {
+    expect(BlastDegradedReason.parse('no_data')).toBe('no_data');
   });
 });

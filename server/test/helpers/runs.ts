@@ -1,5 +1,5 @@
 import * as t from '../../src/db/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import type { PgFixture } from './pg.js';
 
 /**
@@ -7,7 +7,7 @@ import type { PgFixture } from './pg.js';
  * agent's review is persisted in the background (the client subscribes to SSE).
  * Tests that assert on persisted reviews/findings/traces must first wait for the
  * background runs to finish. This polls `agent_runs` until every row for the PR
- * reaches a terminal status (done / failed / cancelled).
+ * reaches a terminal status (done / failed / cancelled) AND its trace is persisted.
  */
 const TERMINAL = new Set(['done', 'failed', 'cancelled']);
 
@@ -27,7 +27,19 @@ export async function waitForPrRuns(
       expected != null
         ? terminal.length >= expected
         : runs.length > 0 && terminal.length === runs.length;
-    if (done) return runs;
+    if (done) {
+      // agent_runs flips to terminal BEFORE the trace document is saved; wait for
+      // the trace of every terminal run so callers can read it right away.
+      const terminalIds = terminal.map((r) => r.id);
+      const traces = await db
+        .select({ id: t.runTraces.runId })
+        .from(t.runTraces)
+        .where(inArray(t.runTraces.runId, terminalIds));
+      const have = new Set(traces.map((x) => x.id));
+      // Only 'done' runs are guaranteed a trace; failed/cancelled may lack one.
+      const ready = terminal.every((r) => r.status !== 'done' || have.has(r.id));
+      if (ready) return runs;
+    }
     if (Date.now() - start > timeoutMs) return runs;
     await new Promise((r) => setTimeout(r, 25));
   }

@@ -5,9 +5,16 @@ import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { FindingRecord, PrFile } from "@devdigest/shared";
 import prReview from "../../../../../../../../messages/en/prReview.json";
+import brief from "../../../../../../../../messages/en/brief.json";
 import shell from "../../../../../../../../messages/en/shell.json";
 import { DiffTab } from "./DiffTab";
 
+let searchFile: string | null = null;
+const scroll = vi.fn();
+Element.prototype.scrollIntoView = scroll;
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(searchFile ? { file: searchFile } : {}),
+}));
 vi.mock("@/lib/toast", () => ({ notify: { error: vi.fn() } }));
 
 const PATCH = ["@@ -1,2 +1,3 @@", " keep", "+const key = 1;", " tail"].join("\n");
@@ -68,6 +75,8 @@ let routes: Record<string, Handler>;
 const calls: { url: string; method: string }[] = [];
 
 beforeEach(() => {
+  searchFile = null;
+  scroll.mockClear();
   calls.length = 0;
   routes = {
     "/pulls/p1/smart-diff": () => ({ body: smartDiff() }),
@@ -104,12 +113,51 @@ function ui() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <NextIntlClientProvider locale="en" messages={{ prReview, shell }}>
+      <NextIntlClientProvider locale="en" messages={{ prReview, shell, brief }}>
         <DiffTab prId="p1" filesCount={3} files={FILES} canComment={false} repoFullName="o/r" headSha="abc" />
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );
 }
+
+describe("DiffTab ?file= deep link", () => {
+  it("opens the collapsed Boilerplate group and the file, scrolls and focuses its header", async () => {
+    searchFile = "dist/out.js";
+    ui();
+    await screen.findByText("Core");
+    await waitFor(() =>
+      expect(screen.getByText("dist/out.js").closest("[data-role]")?.getAttribute("data-role")).toBe("boilerplate"),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByText("dist/out.js").parentElement));
+    expect(scroll).toHaveBeenCalled();
+    expect(screen.getAllByText("const key = 1;").length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("jumps in the flat list while Smart Diff is loading, then once more in the groups", async () => {
+    searchFile = "src/a.test.ts";
+    ui();
+    expect(scroll).toHaveBeenCalledTimes(1);
+    await screen.findByText("Core");
+    await waitFor(() => expect(scroll).toHaveBeenCalledTimes(2));
+    expect(document.activeElement).toBe(screen.getByText("src/a.test.ts").parentElement);
+  });
+
+  it("jumps in the flat list when Smart Diff fails", () => {
+    routes["/pulls/p1/smart-diff"] = () => ({ status: 500, body: { message: "boom" } });
+    searchFile = "dist/out.js";
+    ui();
+    expect(document.activeElement).toBe(screen.getByText("dist/out.js").parentElement);
+  });
+
+  it("shows an info line for an unknown file and leaves group state unchanged", async () => {
+    searchFile = "nope.ts";
+    ui();
+    expect(screen.getByText("nope.ts is not in the current diff.")).toBeInTheDocument();
+    await screen.findByText("Core");
+    expect(screen.queryByText("dist/out.js")).toBeNull();
+    expect(scroll).not.toHaveBeenCalled();
+  });
+});
 
 describe("DiffTab smart diff", () => {
   it("renders groups in server order with label, file count and findings counter", async () => {

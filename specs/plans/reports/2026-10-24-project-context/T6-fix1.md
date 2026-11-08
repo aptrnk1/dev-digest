@@ -1,0 +1,1 @@
+T6 fix round 1: F4 FIXED client/src/lib/hooks/context.ts (module-level per-(kind,id,repo) promise queue `enqueue`, used by useToggleDocAttachment and useSetContextAttachments). Regression test in context.test.tsx failed red (['doc2.md'] vs ['doc1.md','doc2.md']), now green.

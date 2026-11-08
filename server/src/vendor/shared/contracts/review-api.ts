@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Finding, Verdict } from './findings.js';
-import { Intent, SmartDiff, BlastRadius } from './brief.js';
+import { Intent, SmartDiff, BlastRadius, BlastDegradedReason } from './brief.js';
 
 /**
  * A2 — Review-Core API surface contracts. These extend the core
@@ -80,10 +80,6 @@ export type DeriveIntentBody = z.infer<typeof DeriveIntentBody>;
 /** Smart-diff response for a PR (the SmartDiff). */
 export const SmartDiffResponse = SmartDiff;
 export type SmartDiffResponse = z.infer<typeof SmartDiffResponse>;
-
-/** Degradation reason for blast radius computation. */
-export const BlastDegradedReason = z.enum(['flag_off', 'index_failed', 'index_partial', 'repo_too_large', 'no_data']);
-export type BlastDegradedReason = z.infer<typeof BlastDegradedReason>;
 
 /** Statistics about blast radius impact. */
 export const BlastStats = z.object({

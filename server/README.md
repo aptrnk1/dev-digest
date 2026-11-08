@@ -78,6 +78,9 @@ flowchart TB
     intent["intent<br/>GET/POST /pulls/:id/intent"]
     smartDiff["smart-diff<br/>GET /pulls/:id/smart-diff"]
     blast["blast<br/>GET /pulls/:id/blast-radius"]
+    onboarding["onboarding<br/>GET /repos/:id/onboarding · POST /repos/:id/onboarding/generate"]
+    brief["brief<br/>GET/POST /pulls/:id/brief"]
+    context["context (Project Context)<br/>GET /repos/:id/context(/file|/usage)<br/>GET/PUT /agents/:id/context · /skills/:id/context"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
@@ -166,6 +169,34 @@ What the reviewer actually sends to the model is assembled in
   description is `low`/`inferred` whatever the model says. Reviews reach it via
   `container.intent` (non-fatal pre-work); the intent cost stays in `pr_intent`,
   not in `agent_runs.cost_usd`. Routes: `GET/POST /pulls/:id/intent`.
+- **PR Risk Brief (`modules/brief`).** `BriefService.generate` runs: PR lookup →
+  per-PR in-memory lock (409 `brief_in_progress`) → `resolveModel` (Feature Models →
+  `risk_brief`; a missing key is 422 before any fact gathering) → facts → ONE
+  `pr_brief` structured call (provider with `maxRetries: 0`, 45 s per attempt, ≤ 2
+  attempts in the service; `cost_usd` sums the attempts) → `sanitizeDraft` → upsert
+  into `pr_brief.json`. Facts come only from facades — `container.intent.get`
+  (stored, never derives), `container.blast.get`, `container.smartDiff.facts`
+  (roles + finding anchors) and `container.runContext.resolveForRepo` (specs of all
+  enabled agents; a throw means "no specs") — and carry hunk line numbers, no diff
+  text; blast symbols/callers are capped (`MAX_BLAST_SYMBOLS` 30,
+  `MAX_BLAST_CALLERS` 50). `sanitizeDraft` keeps focus inside new-side ranges and
+  refs inside changed ∪ caller files, ≤ 6 risks / 6 focus, code-point truncation.
+  `GET` never calls the LLM and flags `stale` when `head_sha` moved. Routes:
+  `GET/POST /pulls/:id/brief` · 404 `pr_not_found` · 409 `brief_in_progress` ·
+  422 `llm_not_configured` · 502 `brief_failed`. Details:
+  [`docs/brief.md`](docs/brief.md).
+- **Project Context docs (`modules/context`).** Docs attached per agent and per
+  skill (own first, then the enabled skills; first path wins) are resolved by
+  `container.runContext.resolveForRun` once per agent run. They are read from
+  `origin/<base>` through git (never the PR head, no fetch), capped at 8,000
+  tokens measured with `renderSpecsBlock`, wrapped by reviewer-core as
+  `<untrusted source="spec:<path>">`, and summarised in one Live Log line
+  (`Project context: N doc(s), +T tokens — …`). A failure or a missing clone/base
+  ref skips the docs, never the run. Details: [`docs/project-context.md`](docs/project-context.md).
+- **Onboarding Tour (`modules/onboarding`).** `POST /repos/:id/onboarding/generate`
+  answers `202` and generates in the background (180 s deadline, at most 2 provider
+  requests); the client polls `GET /repos/:id/onboarding`. Details:
+  [`docs/onboarding-tour.md`](docs/onboarding-tour.md).
 - **Grounding is mandatory.** Every finding must cite a line that exists in the
   diff or it is dropped (`groundFindings`), and the score is recomputed from the
   surviving findings — the model's self-reported score is ignored.

@@ -62,3 +62,9 @@ export function resolveGroups(
   }
   return groups;
 }
+
+/** The changed file a `?file=` deep link points at (exact path match), else null. */
+export function matchTarget(files: PrFile[], file: string | null): string | null {
+  if (!file) return null;
+  return files.some((f) => f.path === file) ? file : null;
+}

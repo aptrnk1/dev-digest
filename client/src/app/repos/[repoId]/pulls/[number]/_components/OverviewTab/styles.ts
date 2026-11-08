@@ -1,6 +1,11 @@
 import type { CSSProperties } from "react";
 
 export const s = {
+  intentBlastRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(472px, 1fr))",
+    gap: 16,
+  } satisfies CSSProperties,
   descriptionBox: {
     border: "1px solid var(--border)",
     borderRadius: 8,

@@ -4,7 +4,7 @@
  * truncation, and ordering (before the diff).
  */
 import { describe, it, expect } from 'vitest';
-import { assemblePrompt } from '../src/prompt.js';
+import { assemblePrompt, specLabel, wrapSpec, renderSpecsBlock } from '../src/index.js';
 
 function userOf(parts: Parameters<typeof assemblePrompt>[0]): string {
   const { messages } = assemblePrompt(parts);
@@ -105,5 +105,33 @@ describe('assemblePrompt — ## PR intent', () => {
     expect(messages[0]!.content).toBe(
       assemblePrompt({ system: 'sys', diff: 'D' }).messages[0]!.content,
     );
+  });
+});
+
+describe('assemblePrompt — ## Project context (specs)', () => {
+  const specs = [
+    { path: 'docs/b.md', content: 'BBB' },
+    { path: 'a "x"<y>.md', content: 'AAA' },
+  ];
+
+  it('sanitizes the label', () => {
+    expect(specLabel('a "x"<y>.md')).toBe('spec:a _x__y_.md');
+    expect(wrapSpec(specs[1]!)).toContain('<untrusted source="spec:a _x__y_.md">');
+  });
+
+  it('wraps each doc separately, in input order, in the user message only', () => {
+    const user = userOf({ system: 'SYS', diff: 'D', specs });
+    const section = user.slice(user.indexOf('## Project context'));
+    expect(section.indexOf('BBB')).toBeLessThan(section.indexOf('AAA'));
+    expect(section.match(/<untrusted source="spec:/g)).toHaveLength(2);
+    expect(systemOf({ system: 'SYS', diff: 'D', specs })).not.toContain('BBB');
+  });
+
+  it('assembly.specs equals renderSpecsBlock; null when empty', () => {
+    expect(assemblePrompt({ system: 's', diff: 'd', specs }).assembly.specs).toBe(
+      renderSpecsBlock(specs),
+    );
+    expect(assemblePrompt({ system: 's', diff: 'd', specs: [] }).assembly.specs).toBeNull();
+    expect(renderSpecsBlock([])).toBeUndefined();
   });
 });

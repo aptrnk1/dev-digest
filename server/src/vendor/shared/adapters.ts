@@ -229,6 +229,8 @@ export interface GitClient {
    * (missing ref/path, not cloned) — never fetches.
    */
   showFile(repo: RepoRef, ref: string, path: string): Promise<string | null>;
+  /** True when `ref` resolves to a commit in the local clone. Never fetches; false on any error. */
+  hasRef(repo: RepoRef, ref: string): Promise<boolean>;
   clonePathFor(repo: RepoRef): string;
 }
 

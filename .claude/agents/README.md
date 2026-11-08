@@ -22,15 +22,34 @@
 `skills`, `model`, `maxTurns`, `color`, `hooks`) відповідає документації Claude Code:
 [Create custom subagents](https://code.claude.com/docs/en/sub-agents).
 
-Типовий конвеєр: `researcher` (за потреби) → `planner` пише план →
+Типовий конвеєр: `spec-creator` аналізує запит і дизайни (за потреби
+запускає кількох `researcher` паралельно), питає й пише draft-спеку →
+`spec-reviewer` перевіряє її → людина ставить спеці `Status: approved` →
+`researcher` (за потреби) → `implementation-planner`
+перевіряє вимоги, питає про незрозуміле й про режим виконання та пише план →
 людина ставить `Status: Approved` → оркестратор запускає по одному
-`implementer` на задачу, хвиля за хвилею (за потреби паралельно з ним
-`test-writer` дописує тести) → `plan-verifier` перевіряє, що кожен пункт
-плану реально є в коді → `architecture-reviewer` перевіряє структуру змін →
+`implementer` на задачу, хвиля за хвилею (у режимі single-agent усі задачі
+виконує один агент послідовно) → фінальне коло паралельно: `plan-verifier`
+перевіряє, що кожен пункт плану реально є в коді (і тест AC лежить у лейні
+з його мітки), `architecture-reviewer` перевіряє структуру змін,
+`/code-review high` шукає баги в логіці → правки → delta-коло →
 `doc-writer` оновлює документацію → `/pr-self-review` перед PR.
 
+**Виконання плану однією командою.** Спеку й план запускають вручну
+(`spec-creator`, `spec-reviewer`, `implementation-planner`). `/run-plan plan: <path>`
+(скіл `.claude/skills/run-plan/`) бере готовий план: передає питання
+агентів користувачу (AskUserQuestion) і продовжує того самого агента через
+`SendMessage`, зупиняється лише на gate затвердження плану, виконує хвилі на
+гілці `feature/<slug>` з комітом на хвилю, а після фінального рев'ю веде
+реєстр знахідок `reports/<feature>/review-<n>.md` і цикл виправлень (≤3 кола:
+critical/major — обов'язково, minor — попутно, nit — ні; implementer у режимі
+`fixes:` може відповісти `DISPUTED` з доказами; ескалація, якщо знахідка не
+закривається). Перед gate план перевіряє `scripts/plan-lint.mjs`.
+`test-writer` у `/run-plan` не використовується (економія токенів): відсутні
+тести дописує `implementer` задачі; агент лишається для ручного запуску.
+
 **Економія токенів без втрати перевірок.** Правила для оркестратора
-зібрані в `specs/plans/_template.md` §Execution:
+зібрані в `.claude/skills/run-plan/references/execute.md`:
 - `implementer` пише повний звіт у файл `specs/plans/reports/<feature>/T<n>.md`,
   а оркестратору повертає короткий, до 15 рядків;
 - з плану і spec implementer читає тільки свою задачу та AC, на які вона
@@ -43,16 +62,25 @@
   implementer;
 - друге коло `architecture-reviewer` і `plan-verifier` працює в delta-режимі
   (`previous` + `since`), а verifier повторно використовує
-  `verify-<sha>.md`, якщо пакет відтоді не змінювався.
+  `verify-<sha>.md`, якщо пакет відтоді не змінювався;
+- усі перевірки йдуть через `scripts/check.sh`: рядок на успішний крок,
+  лише уривок помилок, успіхи кешуються за хешем дерева (спільно для
+  worktree), тож повторний прогін на тому самому коді нічого не коштує;
+- implementer ганяє лише Verify своєї задачі (у циклі red/green — один
+  тестовий файл); повний gate пакета запускає оркестратор раз після merge;
+- implementer вантажить лише скіли з поля `Skills:` задачі (planner обирає
+  1–3), без preload `typescript-expert`.
 
 | Агент | Модель | Доступ | Призначення |
 |---|---|---|---|
 | [`researcher`](./researcher.md) | sonnet | тільки читання + веб | відповідає на конкретне питання з доказами |
-| [`planner`](./planner.md) | opus | пише лише `specs/plans/<feature>.md` | перетворює спеку на план із хвилями |
+| [`spec-creator`](./spec-creator.md) | opus, ≤40 ходів | пише лише спеки `specs/` і `<module>/specs/`, редагує лише draft (guard-хук); без Bash | аналізує запит, дизайни й код, питає, пише draft-спеку з EARS-критеріями |
+| [`spec-reviewer`](./spec-reviewer.md) | opus, ≤30 ходів | тільки читання | рев'ю draft-спеки: неоднозначність, покриття, довіра, traceability |
+| [`implementation-planner`](./implementation-planner.md) | opus | пише лише `specs/plans/<feature>.md` (guard-хук) | перевіряє вимоги й перетворює їх на implementation-план із хвилями; спеки не пише |
 | [`implementer`](./implementer.md) | sonnet, ≤60 ходів | редагує лише файли зі свого `Owns` | виконує одну задачу `T<n>` з плану |
 | [`test-writer`](./test-writer.md) | sonnet, ≤50 ходів | пише лише тести, test helpers, фікстури, e2e flow (guard-хук) | покриває код тестами в лейні з `TESTING.md` |
 | [`plan-verifier`](./plan-verifier.md) | sonnet, ≤50 ходів | тільки читання + Verify/тестові команди | перевіряє, що кожен пункт плану реалізовано в коді |
-| [`architecture-reviewer`](./architecture-reviewer.md) | opus, ≤40 ходів | тільки читання + `pnpm arch:check` | ревю структури: шари, напрям залежностей, межі модулів |
+| [`architecture-reviewer`](./architecture-reviewer.md) | sonnet, ≤40 ходів | тільки читання + `pnpm arch:check` | ревю структури: шари, напрям залежностей, межі модулів |
 | [`doc-writer`](./doc-writer.md) | sonnet, ≤40 ходів | пише лише `.md` за таблицею маршрутизації (guard-хук) | документує код, план або довільний вхід, з Mermaid-схемами |
 
 ### `researcher`
@@ -82,15 +110,121 @@
 - Claude Code, [Create custom subagents](https://code.claude.com/docs/en/sub-agents)
   (read-only набір інструментів через `tools` / `disallowedTools`).
 
-### `planner`
+### `spec-creator`
 
-**Що робить.** Бере затверджену спеку (`specs/*.md` або `<module>/specs/*.md`)
-і пише план `specs/plans/<feature>.md` за шаблоном
-[`specs/plans/_template.md`](../../specs/plans/_template.md). План складається
-з хвиль: W0 foundation (послідовно), W1 паралельні задачі `[P]`, W2
+**Що робить.** Перетворює запит на фічу (і, якщо є, дизайни — скриншоти, які
+юзер скидає в чат; оркестратор зберігає їх у `specs/designs/<date>-<slug>/D<n>.png`
+через `scripts/save-designs.mjs`, і агент читає файли) на draft-спеку за шаблоном
+[`specs/_template.md`](../../specs/_template.md). Це крок перед
+`implementation-planner`. Порядок роботи:
+
+1. Читає контекст лише модулів, яких стосується фіча: їхні `CLAUDE.md` і
+   `INSIGHTS.md`; root `INSIGHTS.md` — лише коли модулів ≥2;
+   `e2e/INSIGHTS.md` — лише коли є критерії з міткою `[e2e]`.
+2. Якщо бракує фактів, ставить дослідницькі питання `R1 [repo|external] …`.
+   У головній сесії (`claude --agent spec-creator`) сам запускає до 4
+   `researcher` паралельно (`Agent(researcher)` у `tools`); як сабагент
+   повертає блок `needs-research`, а оркестратор запускає дослідників і
+   повертає звіти в полі `research:`.
+3. Аналізує: матриця «екран × стан», дії, яких немає на макеті, взаємодія
+   модулів (client → API → сервіс → БД / LLM / GitHub, обидві копії
+   `vendor/shared`, MCP, seed, e2e), довіра до входів, edge cases, NFR,
+   UX-покращення, конфлікти з `INSIGHTS.md`.
+4. Інтерв'ю до запису файлу: питання й пропозиції (REC1…) з варіантом
+   «Recommended»; `AskUserQuestion` або блок `needs-input`, продовження —
+   через `answers:`. До 3 раундів (`depth: quick` — 1).
+5. Пише спеку українською: `US1…`, EARS-критерії
+   `**AC<n>** (<тип>, US<n>) … [unit|it|e2e|manual]`, `EC1…`, `NFR1…` з
+   числом і перевіркою, Assumptions, Open questions (blocking /
+   non-blocking), traceability-матриця. Потім фінальний self-check.
+
+Місце й ім'я: ≥2 модулі → root `specs/`, один → `<module>/specs/`; файл
+`YYYY-MM-DD-<slug>.md`, `Spec ID: SPEC-YYYY-MM-DD-<slug>`. Ставить лише
+`Status: draft`; `approved`/`implemented` ставить людина.
+
+**На чому базується:**
+- Внутрішнє: root `CLAUDE.md`, `README.md` §Architecture, `TESTING.md`
+  (лейни для міток верифікації), [`specs/README.md`](../../specs/README.md),
+  модульні `CLAUDE.md`/`INSIGHTS.md`.
+- Попередньо завантажений скіл `ears-requirements`; ліниво —
+  `ux-states-review`, `llm-trust-boundaries`, `onion-architecture`, `zod`,
+  `mermaid-diagram`, `security`.
+- Guard-хук `PreToolUse` → [`../hooks/spec-creator-guard.sh`](../hooks/spec-creator-guard.sh),
+  див. «Guard-хуки» нижче. Bash вимкнено повністю, щоб обмеження запису не
+  можна було обійти.
+
+**Джерела (патерни):**
+- Alistair Mavin, [EARS — Easy Approach to Requirements Syntax](https://alistairmavin.com/ears/):
+  п'ять шаблонів вимог і їх комбінації.
+- ISO/IEC/IEEE 29148: атрибути якості вимоги (однозначна, перевірювана,
+  одна поведінка, здійсненна).
+- GitHub Spec Kit, [`templates/spec-template.md`](https://github.com/github/spec-kit/blob/main/templates/spec-template.md):
+  user stories з acceptance-сценаріями, позначки неясностей замість здогадок.
+- [OWASP Top 10 for LLM Applications 2025](https://genai.owasp.org/llm-top-10/):
+  розділи «Inputs and provenance» / «Untrusted inputs».
+- Nielsen Norman Group, [10 Usability Heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/)
+  і [WCAG 2.2](https://www.w3.org/TR/WCAG22/): аналіз дизайнів.
+- Anthropic, [How we built our multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system):
+  паралельні дослідники в чистому контексті.
+
+### `spec-reviewer`
+
+**Що робить.** Read-only рев'ю draft-спеки від `spec-creator` до того, як
+людина поставить `approved`. Головне питання до кожного AC/EC/NFR: «чи могли
+б два інженери побудувати за цим різне?». Перевіряє: структуру й заголовок,
+відповідність спеки макетам із `specs/designs/…` (кожен намальований
+елемент і стан покритий AC або non-goal),
+форму й якість EARS, покриття станів UI, взаємодію модулів (твердження про
+код звіряє з `file:line`, через Grep шукає інших споживачів ендпоінта /
+таблиці / контракту), довіру до входів, мітки верифікації проти лейнів
+`TESTING.md`, повноту traceability, конфлікти з `CLAUDE.md` і `INSIGHTS.md`
+модулів зі `Modules:`. Кожна знахідка має цитату зі спеки й severity
+`critical/major/minor/nit`. Вердикт: `APPROVE | APPROVE_WITH_CONCERNS |
+REQUEST_CHANGES | NEEDS_CONTEXT`. Правки вносить `spec-creator` (повторний
+запуск з `draft:`) або людина.
+
+**На чому базується:**
+- Внутрішнє: ті самі джерела, що й `spec-creator`; шкала severity і
+  вердикти — як у `architecture-reviewer`.
+- Попередньо завантажений скіл `ears-requirements` (§8 — чекліст рев'ю);
+  ліниво — `ux-states-review`, `llm-trust-boundaries`.
+
+**Джерела (патерни):**
+- ISO/IEC/IEEE 29148 (атрибути якості вимог) і EARS (див. `spec-creator`).
+- Ідея рев'юера в чистому контексті, який не писав артефакт, — та сама, що в
+  `plan-verifier` і `architecture-reviewer`.
+
+### `implementation-planner`
+
+**Що робить.** Бере вже наявні вимоги: затверджену спеку (`specs/*.md` або
+`<module>/specs/*.md`) чи вимоги з делегування (тоді копіює їх у план дослівно
+як R1…Rn). Спеки агент не пише, не редагує й не доповнює; guard-хук
+`.claude/hooks/implementation-planner-guard.sh` дозволяє запис лише в
+`specs/plans/<feature>.md`. Якщо вимог немає, агент зупиняється.
+
+Перед плануванням агент перевіряє вимоги: прогалини, конфлікти, AC, які не
+можна перевірити, архітектурні розвилки, суперечності з кодом і правилами
+`CLAUDE.md`/`INSIGHTS.md`. Незрозуміле уточнює в користувача, а покращення
+пропонує як рекомендації (REC1…), які користувач приймає або відхиляє. У план
+потрапляють лише прийняті. Якщо прийнята зміна суперечить тексту спеки,
+агент записує «spec update needed» для власника спеки. Усе це фіксується в
+розділі `## Requirements review` плану.
+
+Агент завжди питає режим виконання (якщо його не передано як `mode:`):
+**multi-agent** (один `implementer` на задачу, хвилі, `[P]` у worktree) або
+**single-agent** (один агент виконує всі задачі послідовно в основному
+checkout, усі задачі мають `Route: inline`). Режим записується в заголовок
+плану як `Execution mode:`.
+
+Сам план за шаблоном [`specs/plans/_template.md`](../../specs/plans/_template.md)
+складається з хвиль: W0 foundation (послідовно), W1 паралельні задачі `[P]`, W2
 інтеграція/e2e. Кожна задача має тег `[SHARED|BE|FE]`, взаємно непересічний
-список `Owns`, `Skills`, `Interfaces`, `Acceptance` з посиланнями на AC#,
-точні команди `Verify` і `Escalate if`. Код агент не пише. Із кількох
+список `Owns`, `Skills`, `Route`, `Interfaces`, `Acceptance` з посиланнями на
+AC#/R#, точні команди `Verify` (через `scripts/check.sh`) і `Escalate if`.
+Кожен AC прив'язаний до тесту в лейні з його мітки (`[unit]`, `[it]`,
+`[e2e]`); `[manual]` іде в Risks як «Manual check». Спеку без
+`Status: approved` або з blocking Open questions агент не планує, а для спек,
+які вже пройшли `spec-reviewer`, перевіряє лише те, що видно з коду. Код агент не пише. Із кількох
 варіантів обирає один і пояснює вибір.
 
 **На чому базується:**
@@ -111,24 +245,25 @@
 
 ### `implementer`
 
-**Що робить.** Виконує рівно одну задачу `T<n>` з плану. Спершу за тегом
-задачі завантажує відповідний набір скілів (BE: `onion-architecture`,
-`fastify-best-practices`, `drizzle-orm-patterns`, `zod`; FE: `next-best-practices`,
-`react-best-practices`, `react-testing-library`, `zod`; SHARED: `zod` + схемні
-скіли). Далі працює test-first (red → green → refactor), запускає `Verify`
-і гейт пакета. Повертає статус `DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED`.
+**Що робить.** Виконує рівно одну задачу `T<n>` з плану (`server/`,
+`reviewer-core/`, `mcp/`, `client/`, `e2e/`, спільні контракти). Спершу
+завантажує рівно ті скіли, що перелічені в `Skills:` задачі. Далі працює
+test-first (red → green → refactor; у циклі запускає лише один тестовий файл
+через `scripts/check.sh`) і наприкінці один раз запускає `Verify` задачі.
+Повний gate пакета — справа оркестратора після merge. Повертає статус `DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED`.
 Редагує тільки файли зі свого `Owns`. Git не чіпає, крім одного коміту в
 worktree, коли делегування містить `commit: yes`. В `INSIGHTS.md` не пише,
 а лише пропонує кандидатів, які оркестратор записує через `engineering-insights`.
 Тому кілька екземплярів можуть працювати паралельно.
 
 **На чому базується:**
-- Внутрішнє: план від `planner`, `TESTING.md` (тестові «лейни»:
+- Внутрішнє: план від `implementation-planner`, `TESTING.md` (тестові «лейни»:
   `src/adapters/mocks.ts`, `*.it.test.ts`, vitest + jsdom, e2e flow JSON),
   модульні `CLAUDE.md`/`INSIGHTS.md`, правила root `CLAUDE.md` (pnpm чи npm,
   `SecretsProvider`, заборона руками редагувати міграції та послаблювати
   `INJECTION_GUARD`).
-- Попередньо завантажений скіл `typescript-expert`.
+- Попередньо завантажених скілів немає; для клієнтських тестів —
+  короткий проєктний скіл `client-testing`.
 
 **Джерела (патерни):**
 - obra/superpowers, [`subagent-driven-development/implementer-prompt.md`](https://github.com/obra/superpowers/blob/main/skills/subagent-driven-development/implementer-prompt.md):
@@ -165,8 +300,8 @@ Skipped on purpose, Suspected production bugs, Insight candidates.
   `aria-pressed` замість стилів, у jsdom `File` без `arrayBuffer`, без MSW і
   `user-event`), `e2e/README.md` для flow JSON.
 - Попередньо завантажений скіл `typescript-expert`. Решту скілів вантажить
-  ліниво за лейном: client — `react-testing-library`, `react-best-practices`,
-  `next-best-practices`, `zod`; server-unit — `fastify-best-practices`,
+  ліниво за лейном: client — `client-testing` (+ `react-testing-library` для
+  нетипового випадку); mcp — `zod` за потреби; server-unit — `fastify-best-practices`,
   `onion-architecture`, `zod`; server-integration — те саме + `drizzle-orm-patterns`;
   reviewer-core — `zod`; `security`, якщо тестується auth, user input, файли
   чи секрети.
@@ -326,7 +461,7 @@ Diátaxis-типом), Claims verified, Left out, Open questions, Suggestions
 
 ### Guard-хуки і обмеження
 
-Агенти, які пишуть файли (`test-writer`, `doc-writer`), мають у frontmatter
+Агенти, які пишуть файли (`test-writer`, `doc-writer`, `spec-creator`), мають у frontmatter
 хук `PreToolUse` з matcher `Write|Edit|MultiEdit`. Скрипт читає з stdin
 `tool_input.file_path`, приводить його до шляху відносно репо (з урахуванням
 регістру на macOS) і завершується з `exit 0` (дозволено) або `exit 2`
@@ -342,9 +477,16 @@ Diátaxis-типом), Claims verified, Left out, Open questions, Suggestions
   блокує `**/CLAUDE.md`, `**/INSIGHTS.md`, `specs/plans/**`,
   `docs/agent-prompts/**`, `docs/features/**`, `e2e/specs/**` і `.claude/**`
   (крім `.claude/agents/README.md`).
+- [`spec-creator-guard.sh`](../hooks/spec-creator-guard.sh) дозволяє лише
+  `.md` прямо в `specs/` або в `server|client|reviewer-core|mcp/specs/`
+  (без підкаталогів, тобто без `specs/plans/**`; `e2e/specs/**`, `README.md`
+  і `_template.md` заблоковані). Окрім шляху, дивиться на `tool_name` і на
+  рядок `Status:`/`Статус:` у файлі на диску: `Write` — лише ім'я
+  `YYYY-MM-DD-<slug>.md` і лише поверх draft; `Edit` — будь-що в draft, а в
+  не-draft спеці лише однорядкова заміна рядка Status (позначка superseded).
 - JSON парситься через `jq`. На машині без `jq` `test-writer-guard.sh`
   переходить на `python3`, а потім на `sed`; `doc-writer-guard.sh` одразу на
-  `sed`.
+  `sed`; `spec-creator-guard.sh` — на `python3`, а без обох блокує запис.
 
 Застереження:
 - Хуки у frontmatter сабагента ще не підтверджені живим прогоном (задача T6
@@ -354,7 +496,12 @@ Diátaxis-типом), Claims verified, Left out, Open questions, Suggestions
   захищає лише заборона в промпті.
 - «Bash лише read-only» у `plan-verifier` і `architecture-reviewer` теж
   тримається тільки на промпті: поле `tools` не вміє обмежувати окремі
-  команди Bash (як і в `researcher`).
+  команди Bash (як і в `researcher`). Тому в `spec-creator` і
+  `spec-reviewer` Bash вимкнено зовсім.
+- `Agent(researcher)` у `tools` агента `spec-creator` діє лише тоді, коли
+  агент запущено як головну сесію (`claude --agent spec-creator`): сабагент
+  не може запускати інших сабагентів, тому в цьому випадку він повертає
+  блок `needs-research`.
 
 ---
 

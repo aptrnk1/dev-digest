@@ -1,0 +1,1 @@
+T6 fix round 2: N2 FIXED context.ts (per-key save state: pending count + last confirmed; optimistic set in onMutate; invalidate/rollback only when queue drains, rollback to confirmed). N8 FIXED useRefreshContext in hooks/context.ts, used by ContextView. Red: new N2/N8 tests and ContextView tests failed before; 19 tests pass after.

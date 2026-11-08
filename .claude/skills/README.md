@@ -13,12 +13,18 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [next-best-practices](next-best-practices/SKILL.md) | Frontend | Next.js App Router, RSC boundaries, data fetching, optimization |
 | [react-best-practices](react-best-practices/SKILL.md) | Frontend | React anti-patterns, state management, hooks rules |
 | [react-testing-library](react-testing-library/SKILL.md) | Frontend | General-purpose React Testing Library guide with Vitest |
+| [client-testing](client-testing/SKILL.md) | Frontend | DevDigest client tests: existing setup, render/hook patterns, mocks, INSIGHTS traps (short; for implementer tasks) |
 | [zod](zod/SKILL.md) | Full-stack | Zod schema validation, parsing, error handling, type inference |
 | [typescript-expert](typescript-expert/SKILL.md) | Full-stack | Type-level programming, performance, tooling, migrations |
 | [security](security/SKILL.md) | Full-stack | OWASP Top 10:2025, auth, injection, uploads, secrets |
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
 | [engineering-insights](engineering-insights/SKILL.md) | Shared | Append non-obvious lessons to the module's INSIGHTS.md |
+| [ears-requirements](ears-requirements/SKILL.md) | Specs | EARS acceptance criteria (UA), ISO 29148 quality, weak words, verification hints, traceability |
+| [ux-states-review](ux-states-review/SKILL.md) | Specs | Screens × states matrix, interaction gaps, Nielsen heuristics, WCAG 2.2 AA, DevDigest UI conventions |
+| [llm-trust-boundaries](llm-trust-boundaries/SKILL.md) | Specs | Input classes, OWASP LLM Top 10 (2025) → spec questions, `<untrusted>`/INJECTION_GUARD/grounding |
+| [run-plan](run-plan/SKILL.md) | Workflow | `/run-plan plan: <path>`: executes a plan written manually by `implementation-planner` — plan-lint + gate → waves on a feature branch → verifier + arch review + /code-review → fix loop (≤3) → finish |
 | [pr-self-review](pr-self-review/SKILL.md) | Shared | Pre-PR gate: routes local changes to the skills above, verifies criticals, blocks `gh pr create/merge` (v1.0.0) |
+| [workflow-retro](workflow-retro/SKILL.md) | Workflow | Retro of a multi-agent run: `scripts/workflow-stats.mjs` (tokens, agents, order, turn limits, duplicated reads) + handback reports → difficulties, duplication, misses, recommendations in `.claude/retros/` |
 
 ## What Are Skills?
 

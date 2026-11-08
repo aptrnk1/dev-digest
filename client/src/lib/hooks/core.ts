@@ -15,7 +15,7 @@ import type {
   Repo,
   PrMeta,
   PrDetail,
-  SpecFile,
+  SpecFileList,
   IndexStatus,
 } from "../types";
 
@@ -123,7 +123,7 @@ export function usePullDetail(prId: string | number | null | undefined) {
 export function useContextFiles(repoId: string | null | undefined) {
   return useQuery({
     queryKey: ["context", repoId],
-    queryFn: () => api.get<SpecFile[]>(`/repos/${repoId}/context`),
+    queryFn: () => api.get<SpecFileList>(`/repos/${repoId}/context`),
     enabled: !!repoId,
   });
 }

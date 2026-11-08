@@ -10,6 +10,7 @@ export interface EditorTab {
 export const TABS: readonly EditorTab[] = [
   { key: "config", labelKey: "editor.tabs.config" },
   { key: "skills", labelKey: "editor.tabs.skills" },
+  { key: "context", labelKey: "editor.tabs.context" },
   { key: "evals", labelKey: "editor.tabs.evals", mountOwner: "L06 · Eval pipeline" },
   { key: "stats", labelKey: "editor.tabs.stats", mountOwner: "L07 · per-agent stats" },
   { key: "ci", labelKey: "editor.tabs.ci", mountOwner: "L06 · Export to CI" },

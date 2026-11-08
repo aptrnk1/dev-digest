@@ -66,6 +66,10 @@ export const DownstreamImpact = z.object({
 });
 export type DownstreamImpact = z.infer<typeof DownstreamImpact>;
 
+/** Degradation reason for blast radius computation. */
+export const BlastDegradedReason = z.enum(['flag_off', 'index_failed', 'index_partial', 'repo_too_large', 'no_data']);
+export type BlastDegradedReason = z.infer<typeof BlastDegradedReason>;
+
 export const BlastRadius = z.object({
   changed_symbols: z.array(ChangedSymbol),
   downstream: z.array(DownstreamImpact),
@@ -147,10 +151,41 @@ export const SmartDiff = z.object({
 export type SmartDiff = z.infer<typeof SmartDiff>;
 
 // ---- Composed PR Brief (pr_brief.json) ----
+export const BriefMissingInput = z.enum(['intent', 'blast', 'specs', 'review_findings']);
+export type BriefMissingInput = z.infer<typeof BriefMissingInput>;
+
+export const BriefBlast = z.object({
+  summary: z.string(),
+  caller_files: z.array(z.string()),
+  degraded_reason: BlastDegradedReason.nullable(),
+});
+export type BriefBlast = z.infer<typeof BriefBlast>;
+
+export const ReviewFocusItem = z.object({
+  file: z.string(),
+  line: z.number().int(),
+  reason: z.string(),
+});
+export type ReviewFocusItem = z.infer<typeof ReviewFocusItem>;
+
 export const PrBrief = z.object({
-  intent: Intent,
-  blast: BlastRadius,
+  summary: z.string(),
+  intent: Intent.nullable(),
+  intent_stale: z.boolean(),
+  blast: BriefBlast.nullable(),
   risks: Risks,
-  history: PrHistory,
+  review_focus: z.array(ReviewFocusItem),
+  history: PrHistory.default({ history: [] }),
+  missing_inputs: z.array(BriefMissingInput),
+  head_sha: z.string(),
+  generated_at: z.string().datetime(),
+  model: z.string(),
+  cost_usd: z.number().nullable(),
 });
 export type PrBrief = z.infer<typeof PrBrief>;
+
+export const PrBriefState = z.object({
+  brief: PrBrief.nullable(),
+  stale: z.boolean(),
+});
+export type PrBriefState = z.infer<typeof PrBriefState>;
