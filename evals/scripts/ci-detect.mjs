@@ -45,7 +45,10 @@ function touched(reClaude, reEvals) {
 }
 
 // EVAL_RUN_ALL=1 (manual workflow_dispatch): every skill/agent that has an eval folder.
-const RUN_ALL = process.env.EVAL_RUN_ALL === "1";
+// Also on when the CI plumbing itself changed (workflow file / this script / proxy / launcher),
+// so a PR that edits the eval CI self-tests it end to end.
+const INFRA = /^(\.github\/workflows\/evals\.yml|evals\/scripts\/|evals\/proxy\/)/;
+const RUN_ALL = process.env.EVAL_RUN_ALL === "1" || changed.some((f) => INFRA.test(f));
 const listDirs = (tier) =>
   existsSync(join(EVALS_DIR, tier))
     ? readdirSync(join(EVALS_DIR, tier), { withFileTypes: true })
