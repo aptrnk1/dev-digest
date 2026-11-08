@@ -27,11 +27,19 @@ const changed = (process.env.CHANGED_FILES ?? "")
   .map((s) => s.trim())
   .filter(Boolean);
 
-/** Does evals/<tier>/<name>/ contain at least one *.eval.ts? */
+/**
+ * Can evals/<tier>/<name>/ run? It needs at least one *.eval.ts AND the artifact it tests
+ * (a stale eval folder whose skill/agent is absent on this branch would only fail on load).
+ */
 function hasEvals(tier, name) {
   const dir = join(EVALS_DIR, tier, name);
   if (!existsSync(dir)) return false;
-  return readdirSync(dir).some((f) => f.endsWith(".eval.ts"));
+  if (!readdirSync(dir).some((f) => f.endsWith(".eval.ts"))) return false;
+  const artifact =
+    tier === "skills"
+      ? join(REPO_ROOT, ".claude", "skills", name, "SKILL.md")
+      : join(REPO_ROOT, ".claude", "agents", `${name}.md`);
+  return existsSync(artifact);
 }
 
 /** Collect distinct artifact names touched under a `.claude` and/or `evals` prefix. */
@@ -44,14 +52,25 @@ function touched(reClaude, reEvals) {
   return [...names].sort();
 }
 
-const skillNames = touched(
-  /^\.claude\/skills\/([^/]+)\//,
-  /^evals\/skills\/([^/]+)\//,
-);
-const agentNames = touched(
-  /^\.claude\/agents\/([^/]+)\.md$/,
-  /^evals\/agents\/([^/]+)\//,
-);
+// EVAL_RUN_ALL=1 (manual workflow_dispatch): every skill/agent that has an eval folder.
+// Also on when the CI plumbing itself changed (workflow file / this script / proxy / launcher),
+// so a PR that edits the eval CI self-tests it end to end.
+const INFRA = /^(\.github\/workflows\/evals\.yml|evals\/scripts\/|evals\/proxy\/)/;
+const RUN_ALL = process.env.EVAL_RUN_ALL === "1" || changed.some((f) => INFRA.test(f));
+const listDirs = (tier) =>
+  existsSync(join(EVALS_DIR, tier))
+    ? readdirSync(join(EVALS_DIR, tier), { withFileTypes: true })
+        .filter((d) => d.isDirectory())
+        .map((d) => d.name)
+        .sort()
+    : [];
+
+const skillNames = RUN_ALL
+  ? listDirs("skills")
+  : touched(/^\.claude\/skills\/([^/]+)\//, /^evals\/skills\/([^/]+)\//);
+const agentNames = RUN_ALL
+  ? listDirs("agents")
+  : touched(/^\.claude\/agents\/([^/]+)\.md$/, /^evals\/agents\/([^/]+)\//);
 
 const skills = skillNames.filter((n) => hasEvals("skills", n));
 const skippedSkills = skillNames.filter((n) => !hasEvals("skills", n));
@@ -60,7 +79,9 @@ const skippedAgents = agentNames.filter((n) => !hasEvals("agents", n));
 
 // The workflow tier measures the LIVE harness, so anything that changes it re-triggers it:
 // the root or .claude CLAUDE.md, any agent definition, the workflow cases, or the engine itself.
-const runWorkflow = changed.some(
+const runWorkflow =
+  RUN_ALL ||
+  changed.some(
   (f) =>
     f === "CLAUDE.md" ||
     f === ".claude/CLAUDE.md" ||
@@ -84,5 +105,5 @@ console.error(`changed files : ${changed.length}`);
 console.error(`skills → run  : ${skills.join(", ") || "(none)"}`);
 console.error(`agents → run  : ${agents.join(", ") || "(none)"}`);
 console.error(`workflow tier : ${runWorkflow ? "run" : "skip"}`);
-if (skippedSkills.length) console.error(`SKIP skills (no evals): ${skippedSkills.join(", ")}`);
-if (skippedAgents.length) console.error(`SKIP agents (no evals): ${skippedAgents.join(", ")}`);
+if (skippedSkills.length) console.error(`SKIP skills (no evals / artifact missing): ${skippedSkills.join(", ")}`);
+if (skippedAgents.length) console.error(`SKIP agents (no evals / artifact missing): ${skippedAgents.join(", ")}`);
