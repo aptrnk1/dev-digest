@@ -28,6 +28,11 @@ export type {
   PrReviewComment,
   PrStatus,
   SpecFile,
+  SpecFileList,
+  ContextDocUsage,
+  ContextAttachmentStatus,
+  ContextAttachments,
+  ContextAttachmentsInput,
   IndexStatus,
 } from "@devdigest/shared";
 

@@ -16,13 +16,21 @@ export function SmartDiffGroup({
   group,
   commenting,
   renderFinding,
+  targetPath,
 }: {
   group: ResolvedGroup;
   commenting?: DiffCommentApi;
   renderFinding?: (f: FindingRecord) => React.ReactNode;
+  targetPath?: string | null;
 }) {
   const t = useTranslations("prReview");
-  const [open, setOpen] = React.useState(group.role !== "boilerplate" || group.files_with_findings > 0);
+  const hasTarget = !!targetPath && group.files.some((rf) => rf.file.path === targetPath);
+  const [open, setOpen] = React.useState(
+    hasTarget || group.role !== "boilerplate" || group.files_with_findings > 0,
+  );
+  React.useEffect(() => {
+    if (hasTarget) setOpen(true);
+  }, [hasTarget]);
 
   return (
     <div style={s.group} data-role={group.role}>
@@ -44,6 +52,7 @@ export function SmartDiffGroup({
               findings={rf.findings}
               maxSeverity={rf.maxSeverity}
               renderFinding={renderFinding}
+              target={!!targetPath && rf.file.path === targetPath}
             />
           ))}
         </div>

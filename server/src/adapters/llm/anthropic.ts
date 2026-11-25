@@ -8,12 +8,24 @@ import type {
   StructuredResult,
   ChatMessage,
 } from '@devdigest/shared';
-import { withRetry, withTimeout } from '../../platform/resilience.js';
+import { withRetry, withTimeout, type RetryOptions } from '../../platform/resilience.js';
 import { toJsonSchema, parseWithRepair } from '../../platform/structured.js';
 import { estimateCost } from './pricing.js';
 import { ExternalServiceError } from '../../platform/errors.js';
 
 const DEFAULT_TIMEOUT = 60_000;
+
+/**
+ * Optional transport limits. When `maxRetries` is set the SDK's own retries are
+ * disabled and `withRetry` retries at most `maxRetries` times, so the number of
+ * HTTP requests per call is bounded. `timeoutMs` replaces the per-request
+ * timeout default. Without options behaviour is unchanged.
+ */
+export interface LlmProviderOptions {
+  maxRetries?: number;
+  timeoutMs?: number;
+  fetch?: typeof fetch;
+}
 const DEFAULT_MAX_TOKENS = 4096;
 
 /** Anthropic has no embeddings API; embeddings come from the OpenAI Embedder. */
@@ -42,12 +54,25 @@ export class AnthropicProvider implements LLMProvider {
   readonly id = 'anthropic' as const;
   private client: Anthropic;
 
-  constructor(apiKey: string) {
-    this.client = new Anthropic({ apiKey });
+  private readonly retry: RetryOptions;
+  private readonly timeoutMs: number;
+
+  constructor(apiKey: string, opts: LlmProviderOptions = {}) {
+    this.client = new Anthropic({
+      apiKey,
+      ...(opts.maxRetries !== undefined ? { maxRetries: 0 } : {}),
+      ...(opts.fetch ? { fetch: opts.fetch } : {}),
+    });
+    this.retry = opts.maxRetries !== undefined ? { retries: opts.maxRetries } : {};
+    this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT;
+  }
+
+  private retrying<T>(fn: () => Promise<T>): Promise<T> {
+    return withRetry(fn, this.retry);
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    return withRetry(async () => {
+    return this.retrying(async () => {
       // SDK 0.33 exposes models.list()
       const res = await this.client.models.list();
       return res.data.map((m) => ({
@@ -59,7 +84,7 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   async complete(req: CompletionRequest): Promise<CompletionResult> {
-    return withRetry(() => withTimeout(this.doComplete(req), req.timeoutMs ?? DEFAULT_TIMEOUT));
+    return this.retrying(() => withTimeout(this.doComplete(req), req.timeoutMs ?? this.timeoutMs));
   }
 
   private async doComplete(req: CompletionRequest): Promise<CompletionResult> {
@@ -97,7 +122,7 @@ export class AnthropicProvider implements LLMProvider {
     let lastRaw = '';
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-      const res = await withRetry(() =>
+      const res = await this.retrying(() =>
         withTimeout(
           this.client.messages.create({
             model: req.model,
@@ -114,7 +139,7 @@ export class AnthropicProvider implements LLMProvider {
             ],
             tool_choice: { type: 'tool', name: toolName },
           }),
-          req.timeoutMs ?? DEFAULT_TIMEOUT,
+          req.timeoutMs ?? this.timeoutMs,
         ),
       );
       tokensIn += res.usage.input_tokens;

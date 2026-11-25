@@ -15,6 +15,10 @@
 export {
   assemblePrompt,
   wrapUntrusted,
+  specLabel,
+  wrapSpec,
+  renderSpecsBlock,
+  type ProjectSpec,
   type PromptParts,
   type AssembledPrompt,
 } from './prompt.js';

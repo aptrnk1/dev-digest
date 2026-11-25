@@ -26,7 +26,7 @@ export function isTextInput(el: EventTarget | null): boolean {
 export function activeKeyFor(pathname: string): string {
   if (pathname.startsWith("/settings")) return "settings";
   if (pathname.includes("/multi-agent")) return "multi-agent";
-  if (pathname.includes("/onboarding")) return "onboarding-tour";
+  if (/^\/repos\/[^/]+\/tour(\/|$)/.test(pathname)) return "onboarding-tour";
   if (pathname.includes("/context")) return "context";
   if (pathname.includes("/conventions")) return "conventions";
   if (pathname.includes("/pulls")) return "pulls";
@@ -40,11 +40,11 @@ export function activeKeyFor(pathname: string): string {
 }
 
 /**
- * Where to land after switching the active repo: stay on Conventions when the
- * user is on it (it is repo-scoped too), otherwise the new repo's PR list.
+ * Where to land after switching the active repo: stay on Conventions or the
+ * Onboarding Tour when the user is on one (both are repo-scoped), otherwise
+ * the new repo's PR list.
  */
 export function repoSwitchHref(pathname: string, repoId: string): string {
-  return /^\/repos\/[^/]+\/conventions(\/|$)/.test(pathname)
-    ? `/repos/${repoId}/conventions`
-    : `/repos/${repoId}/pulls`;
+  const m = /^\/repos\/[^/]+\/(conventions|tour)(\/|$)/.exec(pathname);
+  return m ? `/repos/${repoId}/${m[1]}` : `/repos/${repoId}/pulls`;
 }

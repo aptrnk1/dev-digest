@@ -1,0 +1,17 @@
+{
+  "name": "PR Brief empty state on the PR overview",
+  "description": "Open seeded PR #482 and confirm the Overview shows the PR Brief block in its empty state (no brief generated yet) with the Generate brief button, alongside the Intent and Blast radius cards. The button is never clicked — no LLM call. Assumes a freshly-seeded DB where acme/payments-api (PR #482) is the first repo and pr_brief is empty — guaranteed by the e2e-web.yml workflow's fresh seed.",
+  "steps": [
+    { "cmd": ["open", "{BASE}/"], "label": "load the app root" },
+    { "cmd": ["wait", "--url", "/pulls"], "label": "land on the PR list" },
+    { "cmd": ["wait", "--text", "Add rate limiting to public API endpoints"], "label": "seeded PR title row is visible" },
+    { "cmd": ["find", "text", "Add rate limiting to public API endpoints", "click"], "label": "open the PR row" },
+    { "cmd": ["wait", "--url", "/pulls/482"], "label": "navigate to the PR detail route" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "PR detail data settles" },
+    { "cmd": ["wait", "--text", "PR Brief"], "label": "PR Brief section header renders" },
+    { "cmd": ["wait", "--text", "Brief not available yet."], "label": "brief empty state renders" },
+    { "cmd": ["wait", "--text", "Generate brief"], "label": "Generate brief button renders (not clicked — no LLM)" },
+    { "cmd": ["wait", "--text", "Intent"], "label": "IntentCard renders next to the brief" },
+    { "cmd": ["wait", "--text", "Blast radius"], "label": "BlastRadiusCard renders next to the brief" }
+  ]
+}

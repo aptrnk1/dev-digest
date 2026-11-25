@@ -20,5 +20,64 @@
     "loadError": "Couldn’t load spec",
     "save": "Save",
     "saving": "Saving…"
+  },
+  "page": {
+    "listHeader": "PROJECT CONTEXT",
+    "count": "{count, plural, one {# document} other {# documents}}",
+    "rootFolder": "/",
+    "refresh": "Refresh",
+    "truncated": "Showing the first 500 documents.",
+    "tooLarge": "This document is larger than 1 MB and can't be previewed.",
+    "usedBy": "Used by {a, plural, one {# agent} other {# agents}} · {s, plural, one {# skill} other {# skills}}",
+    "empty": {
+      "title": "No Markdown documents found",
+      "body": "Add .md files to the repository (for example under specs/ or docs/) and press Refresh."
+    },
+    "notCloned": "Repository isn't cloned yet — sync it to see its documents.",
+    "noRepo": "Add a repository to see its documents.",
+    "addRepo": "Add repository",
+    "loadError": "Couldn't load documents",
+    "previewError": "Couldn't load document",
+    "retry": "Retry"
+  },
+  "panel": {
+    "filter": "Filter documents…",
+    "noMatch": "No documents match \"{q}\"",
+    "empty": "No Markdown documents found",
+    "notCloned": "Repository isn't cloned yet — sync it to see its documents.",
+    "noRepo": "Add a repository to attach its documents.",
+    "loadError": "Couldn't load documents",
+    "retry": "Retry",
+    "tokens": "{n} tok",
+    "tooLarge": "too large (> 1 MB)",
+    "missing": "missing",
+    "detach": "Detach",
+    "preview": "Preview",
+    "via": "via {skill}",
+    "grip": "Reorder {path}",
+    "attachedOf": "{attached} of {total} attached",
+    "attachedCount": "{attached} attached",
+    "saveError": "Couldn't save context: {message}",
+    "title": "Project context · {repo}",
+    "skillTitle": "Project context to use · {repo}",
+    "skillHint": "Any agent using this skill inherits these documents.",
+    "serializesAs": "SERIALIZES AS",
+    "serializeHeading": "## Project context",
+    "nothingAttached": "Nothing attached",
+    "budget": "≈ {n} tokens / 8,000",
+    "overBudget": "Over the 8,000-token budget — documents past the limit are skipped at run time.",
+    "mapReduce": "With map-reduce this block is sent with every per-file call — its cost multiplies by the number of changed files.",
+    "injected": "Injected as an untrusted block (## Project context) into every run."
+  },
+  "preview": {
+    "loadError": "Couldn't load document",
+    "retry": "Retry",
+    "close": "Close"
+  },
+  "attach": {
+    "button": "Attach to…",
+    "agents": "Agents",
+    "skills": "Skills",
+    "error": "Couldn't update attachments: {message}"
   }
 }

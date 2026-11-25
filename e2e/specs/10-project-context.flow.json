@@ -1,0 +1,20 @@
+{
+  "name": "Project Context page and agent Context tab show the not-cloned state",
+  "description": "L05. From the PR list, opens Project Context in the sidebar (repo-scoped route) and confirms the not-cloned empty state for the seeded repo (clonePath: null), then opens the Security Reviewer from /agents, switches to its Context tab and confirms the same state. Seeded data only — no clone, no LLM.",
+  "steps": [
+    { "cmd": ["open", "{BASE}/"], "label": "load the app root" },
+    { "cmd": ["wait", "--url", "/pulls"], "label": "root redirects to the demo repo's PRs" },
+    { "cmd": ["find", "text", "Project Context", "click"], "label": "open Project Context from the sidebar" },
+    { "cmd": ["wait", "--url", "/context"], "label": "repo-scoped context route reached" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "context fetch settles" },
+    { "cmd": ["wait", "--text", "Repository isn't cloned yet — sync it to see its documents."], "label": "not-cloned empty state on the page (AC18)" },
+    { "cmd": ["open", "{BASE}/agents"], "label": "load the agents page" },
+    { "cmd": ["wait", "--text", "Security Reviewer"], "label": "seeded Security agent is visible" },
+    { "cmd": ["find", "text", "Security Reviewer", "click"], "label": "open the Security agent" },
+    { "cmd": ["wait", "--url", "/agents/"], "label": "agent editor reached" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Context"], "label": "switch to the Context tab" },
+    { "cmd": ["wait", "--url", "tab=context"], "label": "context tab in the URL (AC31)" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "attachments fetch settles" },
+    { "cmd": ["wait", "--text", "Repository isn't cloned yet — sync it to see its documents."], "label": "not-cloned state in the tab (AC44)" }
+  ]
+}

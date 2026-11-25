@@ -1,17 +1,76 @@
 {
-  "title": "Onboarding Tour",
-  "sections": "Sections",
-  "sectionCount": "{count} sections",
-  "regenerate": "Regenerate",
-  "regenerating": "Regenerating…",
-  "unknownError": "Unknown error",
-  "generate": {
-    "title": "Generate onboarding tour",
-    "body": "DevDigest indexes the repo and specs, then writes a 5-section guided tour: overview, architecture, key modules, getting started, and conventions & gotchas.",
-    "cta": "Generate onboarding tour",
-    "generating": "Generating…"
+  "page": {
+    "title": "Onboarding for {name}",
+    "crumb": "Onboarding Tour",
+    "subtitleIndexed": "Generated from index of {count, plural, one {# file} other {# files}} · last refreshed {ago}",
+    "subtitleFiles": "Generated from repository files · last refreshed {ago}",
+    "ago": {
+      "justNow": "just now",
+      "minutes": "{n}m ago",
+      "hours": "{n}h ago",
+      "days": "{n}d ago"
+    },
+    "regenerate": "Regenerate",
+    "shareLink": "Share link",
+    "regenerateDisabledHint": "Repository isn't cloned yet — sync it to regenerate the tour."
   },
-  "loadError": {
-    "title": "Couldn’t load the onboarding tour"
+  "toc": {
+    "onThisPage": "On this page",
+    "architecture": "Architecture overview",
+    "criticalPaths": "Critical paths",
+    "runLocally": "How to run locally",
+    "readingPath": "Guided reading path",
+    "firstTasks": "First tasks"
+  },
+  "sections": {
+    "architecture": "Architecture overview",
+    "criticalPaths": "Critical paths",
+    "runLocally": "How to run locally",
+    "readingPath": "Guided reading path",
+    "firstTasks": "First tasks",
+    "toggle": "Toggle section",
+    "runNote": "Generated from repo files — review before running.",
+    "from": "from {path}",
+    "open": "Open",
+    "openLabel": "Open {path}",
+    "copyLabel": "Copy command {n}",
+    "notEnough": "Not enough grounded information for this section.",
+    "diagramUnavailable": "Diagram unavailable",
+    "size": "{size}"
+  },
+  "states": {
+    "noRepo": "Add a repository to generate its onboarding tour.",
+    "addRepo": "Add repository",
+    "notCloned": "Repository isn't cloned yet — sync it to generate an onboarding tour.",
+    "empty": {
+      "title": "No onboarding tour yet",
+      "body": "Generate a tour of this repository: architecture, critical paths, how to run it, a reading path and first tasks.",
+      "cta": "Generate tour"
+    },
+    "generating": {
+      "title": "Generating onboarding tour…",
+      "body": "This usually takes up to 2 minutes. You can leave the page — generation continues."
+    },
+    "regenerating": "Regenerating… The current tour stays until the new one is ready.",
+    "partialIndex": "Index is partial — critical paths may be less accurate.",
+    "connectionLost": "Connection lost — retrying…",
+    "loadError": {
+      "title": "Couldn't load the onboarding tour",
+      "retry": "Retry"
+    },
+    "failed": "Couldn't generate the tour: {error}",
+    "regenerateFailed": "Couldn't regenerate the tour: {error}",
+    "tryAgain": "Try again"
+  },
+  "errors": {
+    "noKey": "No API key for the Onboarding Tour model. Add one in Settings → API Keys.",
+    "noKeyLink": "Settings → API Keys",
+    "notCloned": "Repository isn't cloned yet — sync it to generate an onboarding tour.",
+    "startFailed": "Couldn't start generation: {message}"
+  },
+  "toasts": {
+    "copied": "Copied",
+    "linkCopied": "Link copied",
+    "copyFailed": "Couldn't copy to clipboard"
   }
 }

@@ -40,6 +40,7 @@ export function FileCard({
   findings = NO_FINDINGS,
   maxSeverity,
   renderFinding,
+  target = false,
 }: {
   file: PrFile;
   commenting?: DiffCommentApi;
@@ -47,13 +48,25 @@ export function FileCard({
   findings?: FindingRecord[];
   maxSeverity?: FindingRecord["severity"] | null;
   renderFinding?: (f: FindingRecord) => React.ReactNode;
+  /** Deep-link target: open, scroll the header into view and focus it (once per mount). */
+  target?: boolean;
 }) {
   const t = useTranslations("shell");
   const tp = useTranslations("prReview");
   const hasFindings = findings.length > 0;
   const [open, setOpen] = React.useState(
-    hasFindings || (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
+    target || hasFindings || (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
   );
+  const headerRef = React.useRef<HTMLDivElement>(null);
+  const jumped = React.useRef(false);
+  React.useEffect(() => {
+    if (!target || jumped.current) return;
+    jumped.current = true;
+    setOpen(true);
+    const el = headerRef.current;
+    el?.scrollIntoView?.({ block: "start" });
+    el?.focus({ preventScroll: true });
+  }, [target]);
   // Findings can arrive after mount (reviews load later): open then, unless the
   // user already toggled this card themselves.
   const touched = React.useRef(false);
@@ -80,7 +93,7 @@ export function FileCard({
 
   return (
     <div style={s.fileCard}>
-      <div onClick={() => {
+      <div ref={headerRef} tabIndex={-1} onClick={() => {
           touched.current = true;
           setOpen((o) => !o);
         }} style={s.fileHeader}>

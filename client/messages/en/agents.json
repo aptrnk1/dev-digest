@@ -53,6 +53,7 @@
     "tabs": {
       "config": "Config",
       "skills": "Skills",
+      "context": "Context",
       "evals": "Evals",
       "stats": "Stats",
       "ci": "CI"
@@ -113,6 +114,14 @@
     "globallyDisabled": "disabled on Skills page",
     "loadError": "Could not load skills.",
     "saveError": "Could not save skill links: {message}"
+  },
+  "context": {
+    "title": "Project context · {repo}",
+    "badge": "{attached} of {total} attached",
+    "budget": "≈ {n, number} tokens / 8,000",
+    "overBudget": "Over the 8,000-token budget — documents past the limit are skipped at run time.",
+    "mapReduce": "With map-reduce this block is sent with every per-file call — its cost multiplies by the number of changed files.",
+    "injected": "Injected as an untrusted block (## Project context) into every run."
   },
   "mount": {
     "body": "Mount point for {owner}. The Agent Editor shell + tab routing are wired by A2 — {owner} renders this tab."

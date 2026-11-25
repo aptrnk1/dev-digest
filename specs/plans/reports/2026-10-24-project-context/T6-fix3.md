@@ -1,0 +1,2 @@
+T6 fix round 3: R2-R5,R9 FIXED context.ts: saves map removed; shared mutationKey [SAVE, repoId(,kind,id)] + isMutating; settleSaves invalidates only when last save settles (error -> refetch); useRefreshContext scoped by predicate, skips owners with in-flight save, useCallback. Red: R2 test failed (get called) before.
+T6 fix round 3b: AC38/AC27 rollback: sync previous in onMutate (save + toggle, toggle now optimistic), onError restores when last in-flight, then settle refetches. Red: panel PUT+GET failing test showed ['b.md'].

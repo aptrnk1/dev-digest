@@ -12,6 +12,12 @@ one feature as a new self-contained module — keep changes inside that module.
 
 ## Commands
 - Full stack: `./scripts/dev.sh` (Postgres → migrate → seed → API :3001 + web :3000)
+- SDD: spec (`spec-creator` ⇄ `spec-reviewer`) and plan (`implementation-planner`) are run
+  manually; then `/run-plan plan: specs/plans/<f>.md` executes it — `.claude/skills/run-plan/`
+- Plan lint: `node scripts/plan-lint.mjs specs/plans/<f>.md`
+- Save chat-attached designs: `node scripts/save-designs.mjs specs/designs/<date>-<slug> [--all] [--file <p>]`
+- Agent-friendly checks: `scripts/check.sh <server|client|reviewer-core|mcp> <typecheck|arch|test|it|gate>... [files]`
+  — one line per pass, failure excerpts only, passes cached by tree hash
 - server unit: `cd server && pnpm exec vitest run --exclude '**/*.it.test.ts'`
 - server integration (needs Docker): `cd server && pnpm exec vitest run .it.test`
 - client: `cd client && pnpm typecheck && pnpm test`

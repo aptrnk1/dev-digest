@@ -27,20 +27,51 @@ flowchart TD
   ONB["/onboarding<br/>add repo"] -->|"POST /repos"| API[("Fastify API")]
   PULLS --> PR["/pulls/:number<br/>review detail<br/>(overview · diff · findings)"]
   CONV["/repos/:repoId/conventions<br/>extract · accept/reject/edit · compose skill"]
+  TOUR["/repos/:repoId/tour<br/>Onboarding Tour: generate · read 5 sections · share link"]
+  CTX["/repos/:repoId/context<br/>Project Context: Markdown docs · preview · attach to agents/skills"]
+  BRIEF["Overview tab: PR Brief · Risks · Review focus"]
 
   AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config)"]
   SETTINGS["/settings/:section<br/>API keys · models"]
 
   PULLS -->|"GET /repos/:id/pulls · /repos/:id/index-state"| API
   PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
+  PR --> BRIEF
+  BRIEF -->|"GET /pulls/:id/brief · POST /pulls/:id/brief (explicit click)"| API
+  BRIEF -->|"Review focus link: ?tab=diff&file=&line="| PR
   AGENTS -->|"/agents · /agents/:id"| API
   CONV -->|"GET /repos/:id/conventions · POST …/extract · …/bulk<br/>PATCH /conventions/:id · POST /skills · PUT /agents/:id/skills"| API
+  TOUR -->|"GET /repos/:id/onboarding (polls while running) · POST …/onboarding/generate"| API
+  CTX -->|"GET /repos/:id/context · …/file · …/usage · GET|PUT /agents|skills/:id/context"| API
   SETTINGS -->|"/settings · /providers"| API
 ```
 
 Cross-cutting chrome lives in `src/components/app-shell` (nav, breadcrumbs,
 `g`-then-key shortcuts). Pages are thin; feature logic sits in colocated
 `_components/<Name>/` folders, each with its own `*.test.tsx`.
+
+### PR Brief on the Overview tab
+
+The Overview tab of `/repos/:repoId/pulls/:number` shows three brief blocks, all
+fed by `usePrBrief` / `useGenerateBrief` in `src/lib/hooks/brief.ts`
+(`src/app/repos/[repoId]/pulls/[number]/_components/`):
+
+- **`BriefCard`** — the summary, an "outdated" badge when the API reports `stale`,
+  and lines for missing inputs and an outdated intent. Opening the tab only reads
+  the stored brief; generating is always an explicit click (Generate / Refresh).
+  On a 409 `brief_in_progress` the card re-reads the brief every 5 s, for at most
+  100 s, until `generated_at` changes. The POST has no client timeout because the
+  LLM call can run long.
+- **`BriefRisks`** — the risks as a list: severity icon, title, first file ref.
+  It is not grouped by file.
+- **`ReviewFocus`** — a numbered list of `file:line — reason` links. A link goes to
+  `<pathname>?tab=diff&file=<path>&line=<n>` via `router.replace`.
+
+`DiffTab` reads `file` from the URL and matches it exactly against the PR files
+(`matchTarget` in `DiffTab/helpers.ts`). The matching `FileCard` expands, scrolls
+into view, and takes focus (`FileCard.tsx`). If the path is not in the diff, a
+status line says so. The `line` parameter is part of the link but the client does
+not read it yet, so the jump lands on the file, not the line.
 
 ## Testing
 

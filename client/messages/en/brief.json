@@ -1,15 +1,16 @@
 {
+  "title": "PR Brief",
   "block": {
     "intent": "Intent",
     "blast": "Blast radius",
-    "risks": "Risks",
+    "risks": "Risks by file",
     "history": "PR history"
   },
   "noRisks": "No notable risks flagged.",
   "noHistory": "No prior PRs overlap these files.",
   "overlap": "{count} overlap",
   "unavailable": "Brief not available yet.",
-  "unavailableHint": "Run a review or open the PR to compute it.",
+  "unavailableHint": "Generate a brief from the PR's intent, blast radius, diff stats and attached specs.",
   "why": {
     "title": "git-why",
     "blame": "blame",
@@ -59,5 +60,37 @@
       "title": "Couldn't load the intent",
       "body": "The PR intent could not be loaded."
     }
-  }
+  },
+  "generate": "Generate brief",
+  "generating": "Generating brief…",
+  "refresh": "Regenerate brief",
+  "stale": "Outdated",
+  "staleHint": "The PR changed since this brief was generated.",
+  "missingInputs": "Generated without: {list}",
+  "input": {
+    "intent": "intent",
+    "blast": "blast radius",
+    "specs": "attached specs",
+    "review_findings": "review findings"
+  },
+  "intentStale": "Generated from an outdated intent — re-derive the intent and regenerate the brief.",
+  "severity": {
+    "high": "High severity",
+    "medium": "Medium severity",
+    "low": "Low severity"
+  },
+  "focus": {
+    "title": "Review focus — read these first"
+  },
+  "noFocus": "No specific lines to start with.",
+  "error": {
+    "title": "Couldn't load the brief",
+    "body": "The PR brief could not be loaded."
+  },
+  "generateError": {
+    "notConfigured": "No LLM key for the Risk Brief model — add one in Settings → Feature Models.",
+    "inProgress": "A brief is already being generated for this PR.",
+    "generic": "Could not generate the brief. Try again."
+  },
+  "fileNotInDiff": "{file} is not in the current diff."
 }

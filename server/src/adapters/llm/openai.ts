@@ -7,12 +7,24 @@ import type {
   StructuredRequest,
   StructuredResult,
 } from '@devdigest/shared';
-import { withRetry, withTimeout } from '../../platform/resilience.js';
+import { withRetry, withTimeout, type RetryOptions } from '../../platform/resilience.js';
 import { toJsonSchema, parseWithRepair } from '../../platform/structured.js';
 import { estimateCost } from './pricing.js';
 import { ExternalServiceError } from '../../platform/errors.js';
 
 const DEFAULT_TIMEOUT = 60_000;
+
+/**
+ * Optional transport limits. When `maxRetries` is set the SDK's own retries are
+ * disabled and `withRetry` retries at most `maxRetries` times, so the number of
+ * HTTP requests per call is bounded. `timeoutMs` replaces the per-request
+ * timeout default. Without options behaviour is unchanged.
+ */
+export interface LlmProviderOptions {
+  maxRetries?: number;
+  timeoutMs?: number;
+  fetch?: typeof fetch;
+}
 const EMBED_MODEL = 'text-embedding-3-small';
 
 /**
@@ -48,12 +60,25 @@ export class OpenAIProvider implements LLMProvider {
   readonly id = 'openai' as const;
   private client: OpenAI;
 
-  constructor(apiKey: string) {
-    this.client = new OpenAI({ apiKey });
+  private readonly retry: RetryOptions;
+  private readonly timeoutMs: number;
+
+  constructor(apiKey: string, opts: LlmProviderOptions = {}) {
+    this.client = new OpenAI({
+      apiKey,
+      ...(opts.maxRetries !== undefined ? { maxRetries: 0 } : {}),
+      ...(opts.fetch ? { fetch: opts.fetch } : {}),
+    });
+    this.retry = opts.maxRetries !== undefined ? { retries: opts.maxRetries } : {};
+    this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT;
+  }
+
+  private retrying<T>(fn: () => Promise<T>): Promise<T> {
+    return withRetry(fn, this.retry);
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    return withRetry(async () => {
+    return this.retrying(async () => {
       const res = await this.client.models.list();
       return res.data
         .filter((m) => m.id.startsWith('gpt') || m.id.includes('o1') || m.id.includes('o3'))
@@ -62,8 +87,8 @@ export class OpenAIProvider implements LLMProvider {
   }
 
   async complete(req: CompletionRequest): Promise<CompletionResult> {
-    return withRetry(() =>
-      withTimeout(this.doComplete(req), req.timeoutMs ?? DEFAULT_TIMEOUT),
+    return this.retrying(() =>
+      withTimeout(this.doComplete(req), req.timeoutMs ?? this.timeoutMs),
     );
   }
 
@@ -94,7 +119,7 @@ export class OpenAIProvider implements LLMProvider {
     let lastRaw = '';
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-      const res = await withRetry(() =>
+      const res = await this.retrying(() =>
         withTimeout(
           this.client.chat.completions.create({
             model: req.model,
@@ -105,7 +130,7 @@ export class OpenAIProvider implements LLMProvider {
               json_schema: { name: req.schemaName, schema: jsonSchema.schema, strict: true },
             },
           }),
-          req.timeoutMs ?? DEFAULT_TIMEOUT,
+          req.timeoutMs ?? this.timeoutMs,
         ),
       );
       lastRaw = res.choices?.[0]?.message?.content ?? '';
@@ -136,10 +161,10 @@ export class OpenAIProvider implements LLMProvider {
 
   async embed(texts: string[]): Promise<number[][]> {
     if (texts.length === 0) return [];
-    return withRetry(async () => {
+    return this.retrying(async () => {
       const res = await withTimeout(
         this.client.embeddings.create({ model: EMBED_MODEL, input: texts }),
-        DEFAULT_TIMEOUT,
+        this.timeoutMs,
       );
       return res.data.map((d) => d.embedding);
     });

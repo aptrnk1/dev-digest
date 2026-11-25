@@ -16,6 +16,7 @@ import {
   type SeedSkill,
 } from './seed-skills.js';
 import { SEED_CONVENTIONS, SEED_CONVENTIONS_FILES_SAMPLED } from './seed-conventions.js';
+import { seedOnboardingTour } from './seed-onboarding.js';
 import { INDEXER_VERSION } from '../modules/repo-intel/constants.js';
 
 /** Default provider/model for the built-in reviewer agents. */
@@ -169,6 +170,7 @@ const SEED_PR_FILES: { path: string; patch: string }[] = [
  * Performance + Test Quality), all on the default openrouter/deepseek-v4-flash
  * provider+model. L02: built-in skills linked to Test Quality (3) and General (1),
  * and one finished conventions extraction (3 candidates) for the demo repo.
+ * L05: one finished Onboarding Tour for the demo repo (upserted: re-seeding keeps one).
  *
  * Course lessons populate the other tables (memory, eval,
  * …) once their features are built — they start empty here.
@@ -689,6 +691,22 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       },
     ]);
   }
+
+  // ---- L05 Onboarding Tour (upsert: re-seeding leaves exactly one tour) ----
+  const tour = seedOnboardingTour(new Date());
+  const tourGeneratedAt = new Date(tour.generated_at);
+  const tourValues = {
+    json: tour,
+    status: 'done' as const,
+    error: null,
+    generatedAt: tourGeneratedAt,
+    startedAt: new Date(tourGeneratedAt.getTime() - 60_000),
+    finishedAt: tourGeneratedAt,
+  };
+  await db
+    .insert(t.onboarding)
+    .values({ repoId, ...tourValues })
+    .onConflictDoUpdate({ target: t.onboarding.repoId, set: tourValues });
 
   return { workspaceId, userId };
 }

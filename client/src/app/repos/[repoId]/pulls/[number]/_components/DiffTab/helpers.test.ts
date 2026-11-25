@@ -1,6 +1,16 @@
 import { describe, it, expect } from "vitest";
 import type { FindingRecord, PrFile, ReviewRecord, SmartDiffResponse } from "@devdigest/shared";
-import { indexFindings, resolveGroups } from "./helpers";
+import { indexFindings, matchTarget, resolveGroups } from "./helpers";
+
+describe("matchTarget", () => {
+  const files = [{ path: "src/a.ts", additions: 1, deletions: 0, patch: null }] as PrFile[];
+  it("matches an exact path", () => expect(matchTarget(files, "src/a.ts")).toBe("src/a.ts"));
+  it("returns null without a parameter", () => expect(matchTarget(files, null)).toBeNull());
+  it("returns null for an unknown path", () => {
+    expect(matchTarget(files, "src/b.ts")).toBeNull();
+    expect(matchTarget(files, "a.ts")).toBeNull();
+  });
+});
 
 const fnd = (id: string) => ({ id, severity: "WARNING", file: "a.ts" }) as FindingRecord;
 const review = (findings: FindingRecord[]) => ({ findings }) as unknown as ReviewRecord;

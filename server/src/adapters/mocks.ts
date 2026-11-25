@@ -250,6 +250,8 @@ export interface MockGitOptions {
   head?: string;
   /** Head `currentHead()` returns AFTER `sync()` runs — simulates fetch+reset advancing HEAD. */
   syncedHead?: string;
+  /** Refs `hasRef` reports as existing (default none). */
+  refs?: string[];
 }
 
 export class MockGitClient implements GitClient {
@@ -296,6 +298,9 @@ export class MockGitClient implements GitClient {
   }
   async showFile(_repo: RepoRef, ref: string, path: string): Promise<string | null> {
     return this.opts.files?.[`${ref}:${path}`] ?? null;
+  }
+  async hasRef(_repo: RepoRef, ref: string): Promise<boolean> {
+    return this.opts.refs?.includes(ref) ?? false;
   }
 }
 

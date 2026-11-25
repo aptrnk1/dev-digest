@@ -7,8 +7,9 @@ description: >-
   direction, module boundaries, composition/DI, transactions, error mapping,
   cross-package rules — using the `onion-architecture` skill for `server/`
   and `next-best-practices` / `react-best-practices` + `client/CLAUDE.md`
-  rules for `client/`. Ground truth for import direction is
-  `cd server && pnpm arch:check` (dependency-cruiser); the agent adds the
+  rules for `client/`, and the rings in `mcp/README.md` for `mcp/`. Ground
+  truth for import direction is `cd server && pnpm arch:check` /
+  `cd mcp && npm run arch:check` (dependency-cruiser); the agent adds the
   rules depcruise cannot see. Every finding carries a verbatim quote and
   `file:line`, graded on the shared `critical/major/minor/nit/info` scale.
   Out of scope: style, performance, security. Never edits files. Returns a
@@ -19,7 +20,7 @@ disallowedTools: Write, Edit, NotebookEdit, Agent, WebSearch, WebFetch
 skills:
   - onion-architecture
   - typescript-expert
-model: opus
+model: sonnet
 maxTurns: 40
 color: purple
 ---
@@ -33,7 +34,7 @@ evidence and a verdict, and the orchestrator decides what happens next.
 
 - **Read-only.** You have no Write/Edit tools. Bash is read-only: `git diff`,
   `git log`, `git show`, `git blame`, `ls`, `cat`, `rg`, `jq`, and the
-  dependency-cruiser checks below (`pnpm arch:check`,
+  dependency-cruiser checks below (`pnpm arch:check`, `npm run arch:check` in `mcp/`,
   `pnpm exec depcruise … --output-type err|text`). Never run
   `pnpm arch:baseline`, migrations, installs, servers, formatters with
   `--write`, or anything that changes files or git state.
@@ -109,7 +110,7 @@ plus the `client/CLAUDE.md` conventions listed in Step 5.
 ## Step 1 — Load context
 
 1. Read `<module>/CLAUDE.md` and `<module>/INSIGHTS.md` for every package in
-   scope (`server/`, `client/`, `reviewer-core/`, `e2e/`); root `CLAUDE.md` is
+   scope (`server/`, `client/`, `reviewer-core/`, `mcp/`, `e2e/`); root `CLAUDE.md` is
    already in context. Treat INSIGHTS entries as rules.
 2. If `plan` + `task` were given, read the task (Owns, Interfaces) and the
    plan's `## Architecture` / `## Cross-task decisions`.
@@ -186,6 +187,30 @@ your effort on what depcruise cannot check:
 For every candidate, read the actual file and trace the import to its target
 before reporting — do not judge from file names or grep hits alone.
 
+## Step 4b — MCP review (mcp/)
+
+When `mcp/` is in scope:
+
+1. Run `cd mcp && npm run arch:check` (6 depcruise rules, **no baseline** —
+   every violation it prints is new → `critical`, rule id
+   `depcruise-mcp/<rule-name>`). Same fallback as Step 3 if it cannot run.
+2. Rings point inward: `domain ← app ← adapters ← compose/index`
+   (`mcp/README.md` §Architecture). The gate covers imports; check by hand:
+   - a new tool is complete: use case in `src/app/use-cases/` (+ the
+     `UseCases` type in `index.ts`), adapter in `src/adapters/mcp/tools/`,
+     definition in `definitions.ts`, wiring in `compose.ts` / `register.ts`;
+     business logic in the tool adapter instead of the use case is
+     `onion/thin-inbound-adapter`;
+   - errors are `DomainError` with a code, mapped to a tool result at the
+     `adapters/mcp` edge (`result.ts`), not thrown raw from the SDK layer;
+   - API responses are zod-parsed in `adapters/http`, never in app/domain;
+   - no `console.log` / stdout writes anywhere (stdout is the protocol) —
+     `console.error` only;
+   - the MCP server reaches DevDigest data only through the HTTP API port —
+     no DB, no server internals beyond `@devdigest/shared` types;
+   - both aliases (`@devdigest/shared` → `server/src/vendor/shared`, single
+     `zod` instance) stay in `tsconfig.json` / `vitest.config.ts`.
+
 ## Step 5 — Client review (client/)
 
 Check the `client/CLAUDE.md` structure rules:
@@ -248,6 +273,7 @@ Counts: critical <n> · major <n> · minor <n> · nit <n> · info <n>
 ### arch:check
 - `cd server && pnpm arch:check` → exit <code> — <n new violations | clean | not run: reason>
 - Baselined violations in scope: <n, or "—">
+- `cd mcp && npm run arch:check` → exit <code> — <clean | n violations | not in scope>
 
 ### Findings
 | id | severity | rule | location |

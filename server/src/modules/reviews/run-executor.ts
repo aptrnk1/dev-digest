@@ -8,6 +8,7 @@ import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './reposit
 import { REVIEW_STRATEGY } from './constants.js';
 import { taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
+import type { RunProjectContext } from '../context/types.js';
 import { formatSkillForPrompt } from '../_shared/skill-prompt.js';
 
 /** A skill as rendered into this run's prompt (L02). */
@@ -224,6 +225,27 @@ export class ReviewRunExecutor {
       // links that are enabled AND whose skill is enabled reach the prompt.
       const skills = await this.resolveSkills(agent.id, runLog);
 
+      // Project Context — attached repo docs read from origin/<base>, once per agent.
+      // Best-effort like the other enrichments: a failure skips the docs, not the run.
+      const projectContext = await this.container.runContext
+        .resolveForRun(
+          {
+            repoId: pull.repoId,
+            agentId: agent.id,
+            repo: { owner: repo.owner, name: repo.name },
+            clonePath: repo.clonePath,
+            base: pull.base,
+          },
+          runLog,
+        )
+        .catch((err): RunProjectContext => {
+          // info, not error: an SSE `error` event shows an "agent failure" toast, but this skip is best-effort.
+          runLog.info(
+            `Project context: skipped (error: ${err instanceof Error ? err.message : String(err)})`,
+          );
+          return { specs: [], specsRead: [] };
+        });
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -247,6 +269,7 @@ export class ReviewRunExecutor {
         // Intent Layer — rendered intent; reviewer-core wraps it as untrusted.
         ...(intent ? { intent } : {}),
         ...(skills.length > 0 ? { skills: skills.map((sk) => sk.text) } : {}),
+        ...(projectContext.specs.length > 0 ? { specs: projectContext.specs } : {}),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
         onEvent: (e) => runLog.event(e.kind, e.msg, e.data),
@@ -323,7 +346,7 @@ export class ReviewRunExecutor {
         })),
         raw_output: outcome.raw,
         memory_pulled: [],
-        specs_read: [],
+        specs_read: projectContext.specsRead,
         // Persisted log = the run's FULL event buffer (incl. shared pre-work:
         // diff load + intent), not just events recorded inside this method.
         log: runLog.logFor(runId),
