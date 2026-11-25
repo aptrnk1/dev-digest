@@ -31,6 +31,8 @@ import type { ReviewsFacade } from '../modules/reviews/types.js';
 import { createReviewsFacade } from '../modules/reviews/compose.js';
 import type { SmartDiffFacade } from '../modules/smart-diff/types.js';
 import { createSmartDiffFacade } from '../modules/smart-diff/compose.js';
+import type { BlastFacade } from '../modules/blast/types.js';
+import { createBlastFacade } from '../modules/blast/compose.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
@@ -60,6 +62,7 @@ export interface ContainerOverrides {
   reviews?: ReviewsFacade;
   /** Smart Diff facade — route tests inject a stub (no DB). */
   smartDiff?: SmartDiffFacade;
+  blast?: BlastFacade;
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
@@ -88,6 +91,7 @@ export class Container {
   private _intent?: IntentFacade;
   private _reviews?: ReviewsFacade;
   private _smartDiff?: SmartDiffFacade;
+  private _blast?: BlastFacade;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
   private _priceBook?: PriceBook;
@@ -154,6 +158,12 @@ export class Container {
     if (this.overrides.smartDiff) return this.overrides.smartDiff;
     this._smartDiff ??= createSmartDiffFacade(this);
     return this._smartDiff;
+  }
+
+  get blast(): BlastFacade {
+    if (this.overrides.blast) return this.overrides.blast;
+    this._blast ??= createBlastFacade(this);
+    return this._blast;
   }
 
   /** Import-graph builder (dependency-cruiser). T3 indexer pipeline only. */

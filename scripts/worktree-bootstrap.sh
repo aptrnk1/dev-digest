@@ -15,7 +15,7 @@
 set -euo pipefail
 
 MAIN="$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')"
-PACKAGES=(server client reviewer-core e2e)
+PACKAGES=(server client reviewer-core mcp e2e)
 
 bootstrap() {
   local wt="$1"

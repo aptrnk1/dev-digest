@@ -77,6 +77,7 @@ flowchart TB
     conventions["conventions (L02)<br/>/repos/:id/conventions(/extract|/bulk) · /conventions/:id"]
     intent["intent<br/>GET/POST /pulls/:id/intent"]
     smartDiff["smart-diff<br/>GET /pulls/:id/smart-diff"]
+    blast["blast<br/>GET /pulls/:id/blast-radius"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]

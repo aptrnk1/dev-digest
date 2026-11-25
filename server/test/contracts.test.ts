@@ -4,6 +4,7 @@ import {
   Finding,
   Intent,
   BlastRadius,
+  BlastRadiusResponse,
   Risks,
   PrHistory,
   SmartDiff,
@@ -114,6 +115,88 @@ describe('AI contracts parse fixtures', () => {
         ],
       }),
     ).not.toThrow();
+  });
+
+  it('BlastRadiusResponse parses full payload', () => {
+    const response = BlastRadiusResponse.parse({
+      pr_id: 'p482',
+      changed_symbols: [{ name: 'rateLimit', file: 'src/middleware/ratelimit.ts', kind: 'function' }],
+      downstream: [
+        {
+          symbol: 'rateLimit',
+          callers: [{ name: 'publicRouter', file: 'src/api/public/index.ts', line: 23 }],
+          endpoints_affected: ['GET /api/public/items'],
+          crons_affected: ['job:reset_rate_buckets'],
+        },
+      ],
+      summary: '1 changed symbols · 1 callers · 1 endpoints · 1 crons',
+      index_sha: 'b1a5700000000000000000000000000000000482',
+      stats: { symbols: 1, callers: 1, endpoints: 1, crons: 1 },
+      degraded: false,
+      degraded_reason: null,
+    });
+    expect(response.pr_id).toBe('p482');
+    expect(response.degraded).toBe(false);
+    expect(response.stats.symbols).toBe(1);
+  });
+
+  it('BlastRadiusResponse parses degraded payload with index_partial reason', () => {
+    const response = BlastRadiusResponse.parse({
+      pr_id: 'p482',
+      changed_symbols: [],
+      downstream: [],
+      summary: '0 changed symbols · 0 callers · 0 endpoints · 0 crons (index degraded: index_partial)',
+      index_sha: 'b1a5700000000000000000000000000000000482',
+      stats: { symbols: 0, callers: 0, endpoints: 0, crons: 0 },
+      degraded: true,
+      degraded_reason: 'index_partial',
+    });
+    expect(response.degraded).toBe(true);
+    expect(response.degraded_reason).toBe('index_partial');
+  });
+
+  it('BlastRadiusResponse parses with index_sha null', () => {
+    const response = BlastRadiusResponse.parse({
+      pr_id: 'p482',
+      changed_symbols: [],
+      downstream: [],
+      summary: '0 changed symbols · 0 callers · 0 endpoints · 0 crons',
+      index_sha: null,
+      stats: { symbols: 0, callers: 0, endpoints: 0, crons: 0 },
+      degraded: false,
+      degraded_reason: null,
+    });
+    expect(response.index_sha).toBeNull();
+  });
+
+  it('BlastRadiusResponse rejects unknown degraded_reason', () => {
+    expect(() =>
+      BlastRadiusResponse.parse({
+        pr_id: 'p482',
+        changed_symbols: [],
+        downstream: [],
+        summary: 's',
+        index_sha: null,
+        stats: { symbols: 0, callers: 0, endpoints: 0, crons: 0 },
+        degraded: true,
+        degraded_reason: 'unknown',
+      }),
+    ).toThrow();
+  });
+
+  it('BlastRadiusResponse rejects negative stats', () => {
+    expect(() =>
+      BlastRadiusResponse.parse({
+        pr_id: 'p482',
+        changed_symbols: [],
+        downstream: [],
+        summary: 's',
+        index_sha: null,
+        stats: { symbols: -1, callers: 0, endpoints: 0, crons: 0 },
+        degraded: false,
+        degraded_reason: null,
+      }),
+    ).toThrow();
   });
 
   it('SmartDiff (data.jsx DIFF) — all five roles, finding_ids, max_severity, rank_percentile, files_with_findings', () => {
