@@ -56,7 +56,8 @@
       "noMatches": "No matches for “{q}”.",
       "tokens": "{count} tok",
       "skillsDetail": "Skills in this prompt",
-      "skillVersion": "v{version}"
+      "skillVersion": "v{version}",
+      "intent": "PR intent (dynamic)"
     },
     "tools": {
       "args": "args",

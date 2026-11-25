@@ -23,3 +23,6 @@ test-results/
 
 # emdash worktree config (local)
 .emdash.json
+
+# agent worktrees (Agent isolation: "worktree")
+.claude/worktrees/

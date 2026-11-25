@@ -135,4 +135,21 @@ describe('reviewPullRequest (engine)', () => {
     expect(seen.length).toBeGreaterThan(0);
     expect(seen.every((s) => s === 'sess-abc')).toBe(true);
   });
+
+  it('threads intent into the prompt assembly (null when absent)', async () => {
+    const clean = { verdict: 'approve', summary: 's', score: 90, findings: [] };
+    const llm = new MockLLMProvider('openai', { structured: clean });
+    const diff = await new MockGitClient().diff();
+    const withIntent = await reviewPullRequest({
+      systemPrompt: 's',
+      model: 'gpt-4.1',
+      diff,
+      llm,
+      intent: 'Add rate limiting',
+    });
+    expect(withIntent.assembly.intent).toBe('Add rate limiting');
+    expect(withIntent.assembly.user).toContain('## PR intent');
+    const without = await reviewPullRequest({ systemPrompt: 's', model: 'gpt-4.1', diff, llm });
+    expect(without.assembly.intent ?? null).toBeNull();
+  });
 });

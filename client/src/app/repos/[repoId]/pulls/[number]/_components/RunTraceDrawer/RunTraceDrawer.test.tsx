@@ -49,6 +49,20 @@ describe("A5 Run Trace drawer (smoke)", () => {
     expect(screen.getByText("$0.06")).toBeInTheDocument();
   });
 
+  it("shows the PR intent prompt block only when prompt_assembly.intent is set", () => {
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+    expect(screen.queryByText("PR intent (dynamic)")).toBeNull();
+    cleanup();
+    TRACE.prompt_assembly.intent = "## PR intent\nAdd rate limiting";
+    try {
+      renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+      fireEvent.click(screen.getByText("Prompt assembly"));
+      expect(screen.getByText("PR intent (dynamic)")).toBeInTheDocument();
+    } finally {
+      TRACE.prompt_assembly.intent = null;
+    }
+  });
+
   it("switches to the live log tab", () => {
     renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
     fireEvent.click(screen.getByText("log"));

@@ -242,6 +242,7 @@ export class MockGitHubClient implements GitHubClient {
 // ---------- Mock Git ----------
 export interface MockGitOptions {
   diff?: string;
+  /** `readFile` content keyed by path; `showFile` content keyed `"<ref>:<path>"` (missing → null). */
   files?: Record<string, string>;
   /** Name-only diff result (drives the incremental indexer's "changed files since X" path). */
   diffNameOnly?: string[];
@@ -292,6 +293,9 @@ export class MockGitClient implements GitClient {
   }
   async readFile(_repo: RepoRef, path: string): Promise<string> {
     return this.opts.files?.[path] ?? '';
+  }
+  async showFile(_repo: RepoRef, ref: string, path: string): Promise<string | null> {
+    return this.opts.files?.[`${ref}:${path}`] ?? null;
   }
 }
 

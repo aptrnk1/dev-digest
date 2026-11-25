@@ -52,6 +52,27 @@ export const prIntent = pgTable('pr_intent', {
   intent: text('intent').notNull(),
   inScope: jsonb('in_scope').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   outOfScope: jsonb('out_of_scope').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  riskAreas: jsonb('risk_areas')
+    .$type<{ label: string; kind: string }[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  confidence: text('confidence').notNull().default('low'),
+  basis: text('basis'),
+  sources: jsonb('sources')
+    .$type<{ kind: string; ref: string; truncated: boolean }[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  unresolvedRefs: jsonb('unresolved_refs')
+    .$type<{ ref: string; reason: string }[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  headSha: text('head_sha'),
+  inputHash: text('input_hash'),
+  model: text('model'),
+  tokensIn: integer('tokens_in'),
+  tokensOut: integer('tokens_out'),
+  costUsd: doublePrecision('cost_usd'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const prBrief = pgTable('pr_brief', {

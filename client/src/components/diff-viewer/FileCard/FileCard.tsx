@@ -5,6 +5,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Icon } from "@devdigest/ui";
+import type { FindingRecord } from "@devdigest/shared";
 import type { PrFile } from "@/lib/types";
 import { AUTO_EXPAND_MAX_LINES } from "../constants";
 import { parsePatch, type Line } from "../helpers";
@@ -15,6 +16,7 @@ import {
   type CommentThread,
   type DiffCommentApi,
 } from "../comments";
+import { anchorFindings, SEVERITY_COLOR } from "../findings";
 import { s, chevronFor } from "../styles";
 import { CodeLine } from "../CodeLine";
 import { OutdatedComments } from "../OutdatedComments";
@@ -30,12 +32,36 @@ function threadsForLine(ln: Line, matched: Map<string, CommentThread[]>): Commen
   return out;
 }
 
-export function FileCard({ file, commenting }: { file: PrFile; commenting?: DiffCommentApi }) {
+const NO_FINDINGS: FindingRecord[] = [];
+
+export function FileCard({
+  file,
+  commenting,
+  findings = NO_FINDINGS,
+  maxSeverity,
+  renderFinding,
+}: {
+  file: PrFile;
+  commenting?: DiffCommentApi;
+  /** Review findings for this file (overlay; rendered inline under the code). */
+  findings?: FindingRecord[];
+  maxSeverity?: FindingRecord["severity"] | null;
+  renderFinding?: (f: FindingRecord) => React.ReactNode;
+}) {
   const t = useTranslations("shell");
+  const tp = useTranslations("prReview");
+  const hasFindings = findings.length > 0;
   const [open, setOpen] = React.useState(
-    (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
+    hasFindings || (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
   );
+  // Findings can arrive after mount (reviews load later): open then, unless the
+  // user already toggled this card themselves.
+  const touched = React.useRef(false);
+  React.useEffect(() => {
+    if (hasFindings && !touched.current) setOpen(true);
+  }, [hasFindings]);
   const lines = React.useMemo(() => parsePatch(file.patch), [file.patch]);
+  const anchored = React.useMemo(() => anchorFindings(lines, findings), [lines, findings]);
 
   // Group this file's comments into threads, then split into ones we can anchor
   // to a rendered line vs. "outdated" (GitHub dropped the line / it's not here).
@@ -54,7 +80,10 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
 
   return (
     <div style={s.fileCard}>
-      <div onClick={() => setOpen((o) => !o)} style={s.fileHeader}>
+      <div onClick={() => {
+          touched.current = true;
+          setOpen((o) => !o);
+        }} style={s.fileHeader}>
         <Icon.ChevronRight size={13} style={chevronFor(open)} />
         <Icon.FileText size={14} style={s.fileIcon} />
         <span className="mono" style={s.filePath}>
@@ -64,6 +93,16 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
           <span style={s.addText}>+{file.additions}</span>{" "}
           <span style={s.delText}>−{file.deletions}</span>
         </span>
+        {hasFindings && (
+          <span
+            style={{
+              ...s.findingBadge,
+              color: maxSeverity ? SEVERITY_COLOR[maxSeverity as keyof typeof SEVERITY_COLOR] : "var(--text-muted)",
+            }}
+          >
+            {tp("smartDiff.findingsCount", { count: findings.length })}
+          </span>
+        )}
         {commentCount > 0 && (
           <span
             style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-muted)" }}
@@ -85,8 +124,18 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
                 path={file.path}
                 threads={threadsForLine(ln, matched)}
                 commenting={commenting}
+                findings={ln.newNo != null && ln.kind !== "del" ? anchored.byNewLine.get(ln.newNo) : undefined}
+                renderFinding={renderFinding}
               />
             ))
+          )}
+          {renderFinding && anchored.fileLevel.length > 0 && (
+            <div style={s.fileFindings}>
+              <span style={s.fileFindingsLabel}>{tp("smartDiff.findingsOutsideDiff")}</span>
+              {anchored.fileLevel.map((f) => (
+                <React.Fragment key={f.id}>{renderFinding(f)}</React.Fragment>
+              ))}
+            </div>
           )}
           {commenting && commenting.showComments && <OutdatedComments threads={outdated} />}
         </div>

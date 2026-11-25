@@ -47,6 +47,8 @@ export const PromptAssembly = z.object({
   repo_map: z.string().nullish(),
   /** PR author's description/body (truncated); null when absent. */
   pr_description: z.string().nullish(),
+  /** Rendered `## PR intent` block (untrusted-wrapped by the engine); null when absent. */
+  intent: z.string().nullish(),
   user: z.string(),
   /** L02 — tokens per assembled block (system, skills, …, user); absent on
       legacy traces. Counted server-side with cl100k (approximate per model). */

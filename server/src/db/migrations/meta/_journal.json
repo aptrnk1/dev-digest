@@ -99,6 +99,13 @@
       "when": 1792440557140,
       "tag": "0013_slim_gideon",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792610905934,
+      "tag": "0014_sturdy_korath",
+      "breakpoints": true
     }
   ]
 }
